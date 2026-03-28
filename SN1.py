@@ -294,3 +294,21 @@ with st.expander("ℹ️ About AASHTO 1993 Design Method"):
 
 st.markdown("---")
 st.caption("Developed for AASHTO 1993 Flexible Pavement Design | No scipy dependency")
+
+if sn_provided < sn_solution:
+    st.error("⚠️ Design is inadequate! Increase layer thicknesses.")
+    
+    st.markdown("### 💡 Suggested Adjustments")
+    
+    sn_deficit = sn_solution - sn_provided
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        extra_d1 = sn_deficit / a1
+        st.info(f"Increase D₁ by **{extra_d1:.1f} inches**\n\nNew D₁ = {d1 + extra_d1:.1f} in")
+    with col2:
+        extra_d2 = sn_deficit / (a2 * m2)
+        st.info(f"Increase D₂ by **{extra_d2:.1f} inches**\n\nNew D₂ = {d2 + extra_d2:.1f} in")
+    with col3:
+        extra_d3 = sn_deficit / (a3 * m3)
+        st.info(f"Increase D₃ by **{extra_d3:.1f} inches**\n\nNew D₃ = {d3 + extra_d3:.1f} in")
