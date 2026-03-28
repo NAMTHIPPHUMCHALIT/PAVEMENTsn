@@ -3,7 +3,7 @@ import math
 import numpy as np
 import os
 
-# ✅ FIX matplotlib (สำคัญมาก)
+# ✅ FIX matplotlib
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 
 # =============================
-# FUNCTION
+# AASHTO SLAB DESIGN
 # =============================
 def calc_log_W18(D, ZR, S0, DPSI, Ec, Sc, J, Cd, k, pt):
     try:
@@ -33,11 +33,13 @@ def calc_log_W18(D, ZR, S0, DPSI, Ec, Sc, J, Cd, k, pt):
     except:
         return -999
 
-def design_slab(W18, R, S0, p0, pt, Ec, Sc, J, Cd, k):
+
+def design_slab(W18, R, Ec, Sc, k):
     ZR_map = {85: -1.037, 90: -1.282, 95: -1.645}
     ZR = ZR_map.get(R, -1.282)
 
-    DPSI = p0 - pt
+    S0 = 0.35
+    DPSI = 4.5 - 2.5
     target = math.log10(W18 * 1e6)
 
     Ec = Ec * 145.038
@@ -47,7 +49,7 @@ def design_slab(W18, R, S0, p0, pt, Ec, Sc, J, Cd, k):
     lo, hi = 1, 20
     for _ in range(100):
         mid = (lo + hi) / 2
-        val = calc_log_W18(mid, ZR, S0, DPSI, Ec, Sc, J, Cd, k, pt)
+        val = calc_log_W18(mid, ZR, S0, DPSI, Ec, Sc, 3.2, 1.0, k, 2.5)
 
         if val < target:
             lo = mid
@@ -57,72 +59,103 @@ def design_slab(W18, R, S0, p0, pt, Ec, Sc, J, Cd, k):
     D = math.ceil(mid * 4) / 4
     return round(D * 25.4)
 
-def validate_inputs(W18, k, CBR):
-    warnings = []
-    if W18 <= 0:
-        warnings.append("❌ W18 ต้องมากกว่า 0")
-    if k < 20:
-        warnings.append("⚠️ k ต่ำมาก → pavement จะหนามาก")
-    if CBR < 3:
-        warnings.append("⚠️ CBR ต่ำมาก → ควรปรับปรุงดิน")
-    return warnings
 
-def plot_graph(W18, D):
-    D_range = np.linspace(100, 400, 100)
-    W = (D_range / D) ** 4 * W18
+# =============================
+# LAYER DESIGN (NEW 🔥)
+# =============================
+def design_layers(D, CBR):
+    # Base thickness (rule of thumb)
+    if CBR < 5:
+        base = 250
+    elif CBR < 10:
+        base = 200
+    else:
+        base = 150
 
-    plt.figure()
-    plt.plot(D_range, W)
-    plt.scatter([D], [W18])
+    # Subbase thickness
+    if CBR < 5:
+        subbase = 200
+    elif CBR < 10:
+        subbase = 150
+    else:
+        subbase = 100
+
+    total = D + base + subbase
+
+    return base, subbase, total
+
+
+# =============================
+# DRAW LAYERS (NEW 🔥)
+# =============================
+def draw_layers(D, base, subbase):
+    layers = ["PCC Slab", "Base", "Subbase"]
+    thickness = [D, base, subbase]
+
+    plt.figure(figsize=(4,6))
+    plt.barh(layers, thickness)
     plt.xlabel("Thickness (mm)")
-    plt.ylabel("W18 (Million)")
-    plt.grid()
+    plt.title("Pavement Structure")
 
-    plt.savefig("plot.png")
+    plt.savefig("layers.png")
     plt.close()
 
-def generate_pdf(D):
+
+# =============================
+# PDF
+# =============================
+def generate_pdf(D, base, subbase, total):
     doc = SimpleDocTemplate("AASHTO_Report.pdf")
     styles = getSampleStyleSheet()
 
     story = []
-    story.append(Paragraph("AASHTO 1993 Design Report", styles["Title"]))
+    story.append(Paragraph("AASHTO 1993 Pavement Design", styles["Title"]))
     story.append(Spacer(1, 20))
-    story.append(Paragraph(f"Slab Thickness = {D} mm", styles["Normal"]))
 
-    if os.path.exists("plot.png"):
+    story.append(Paragraph(f"PCC Slab = {D} mm", styles["Normal"]))
+    story.append(Paragraph(f"Base = {base} mm", styles["Normal"]))
+    story.append(Paragraph(f"Subbase = {subbase} mm", styles["Normal"]))
+    story.append(Paragraph(f"Total Thickness = {total} mm", styles["Normal"]))
+
+    if os.path.exists("layers.png"):
         story.append(Spacer(1, 20))
-        story.append(Image("plot.png", width=400, height=250))
+        story.append(Image("layers.png", width=300, height=400))
 
     doc.build(story)
+
 
 # =============================
 # UI
 # =============================
-st.set_page_config(page_title="AASHTO 1993")
+st.title("🛣️ Pavement Design (Layered)")
 
-st.title("🛣️ AASHTO 1993 Rigid Pavement")
-
-W18 = st.number_input("W18 (Million ESAL)", value=15.0)
+W18 = st.number_input("W18 (Million ESAL)", 15.0)
 R = st.selectbox("Reliability", [85, 90, 95])
-k = st.number_input("k (MN/m³)", value=54.0)
-CBR = st.number_input("CBR (%)", value=8)
+k = st.number_input("k (MN/m³)", 54.0)
+CBR = st.number_input("CBR (%)", 8)
 
-Ec = st.number_input("Ec (MPa)", value=27600)
-Sc = st.number_input("Sc (MPa)", value=4.8)
+Ec = st.number_input("Ec (MPa)", 27600)
+Sc = st.number_input("Sc (MPa)", 4.8)
 
 if st.button("Run Design"):
-    for w in validate_inputs(W18, k, CBR):
-        st.warning(w)
 
-    D = design_slab(W18, R, 0.35, 4.5, 2.5, Ec, Sc, 3.2, 1.0, k)
+    # slab
+    D = design_slab(W18, R, Ec, Sc, k)
 
-    st.success(f"Slab Thickness = {D} mm")
+    # layers
+    base, subbase, total = design_layers(D, CBR)
 
-    plot_graph(W18, D)
-    st.image("plot.png")
+    st.success(f"PCC Slab = {D} mm")
+    st.info(f"Base = {base} mm")
+    st.info(f"Subbase = {subbase} mm")
+    st.warning(f"Total Thickness = {total} mm")
 
-    generate_pdf(D)
+    # plot
+    draw_layers(D, base, subbase)
+    st.image("layers.png")
+
+    # pdf
+    generate_pdf(D, base, subbase, total)
 
     with open("AASHTO_Report.pdf", "rb") as f:
         st.download_button("Download PDF", f)
