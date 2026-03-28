@@ -12,7 +12,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 
 # =============================
-# AASHTO FUNCTION
+# FUNCTION
 # =============================
 def calc_log_W18(D, ZR, S0, DPSI, Ec, Sc, J, Cd, k, pt):
     try:
@@ -33,12 +33,7 @@ def calc_log_W18(D, ZR, S0, DPSI, Ec, Sc, J, Cd, k, pt):
     except:
         return -999
 
-
-# =============================
-# DESIGN
-# =============================
 def design_slab(W18, R, S0, p0, pt, Ec, Sc, J, Cd, k):
-
     ZR_map = {85: -1.037, 90: -1.282, 95: -1.645}
     ZR = ZR_map.get(R, -1.282)
 
@@ -62,28 +57,16 @@ def design_slab(W18, R, S0, p0, pt, Ec, Sc, J, Cd, k):
     D = math.ceil(mid * 4) / 4
     return round(D * 25.4)
 
-
-# =============================
-# VALIDATION
-# =============================
 def validate_inputs(W18, k, CBR):
     warnings = []
-
     if W18 <= 0:
         warnings.append("❌ W18 ต้องมากกว่า 0")
-
     if k < 20:
         warnings.append("⚠️ k ต่ำมาก → pavement จะหนามาก")
-
     if CBR < 3:
         warnings.append("⚠️ CBR ต่ำมาก → ควรปรับปรุงดิน")
-
     return warnings
 
-
-# =============================
-# PLOT
-# =============================
 def plot_graph(W18, D):
     D_range = np.linspace(100, 400, 100)
     W = (D_range / D) ** 4 * W18
@@ -98,10 +81,6 @@ def plot_graph(W18, D):
     plt.savefig("plot.png")
     plt.close()
 
-
-# =============================
-# PDF
-# =============================
 def generate_pdf(D):
     doc = SimpleDocTemplate("AASHTO_Report.pdf")
     styles = getSampleStyleSheet()
@@ -117,42 +96,33 @@ def generate_pdf(D):
 
     doc.build(story)
 
-
 # =============================
-# STREAMLIT UI
+# UI
 # =============================
-st.set_page_config(page_title="AASHTO 1993", layout="centered")
+st.set_page_config(page_title="AASHTO 1993")
 
-st.title("🛣️ AASHTO 1993 Rigid Pavement Design")
+st.title("🛣️ AASHTO 1993 Rigid Pavement")
 
-# INPUT
 W18 = st.number_input("W18 (Million ESAL)", value=15.0)
-R = st.selectbox("Reliability (%)", [85, 90, 95])
-k = st.number_input("Subgrade k (MN/m³)", value=54.0)
+R = st.selectbox("Reliability", [85, 90, 95])
+k = st.number_input("k (MN/m³)", value=54.0)
 CBR = st.number_input("CBR (%)", value=8)
 
-st.subheader("Material Properties")
 Ec = st.number_input("Ec (MPa)", value=27600)
 Sc = st.number_input("Sc (MPa)", value=4.8)
 
-# RUN
-if st.button("🚀 Run Design"):
-
-    warnings = validate_inputs(W18, k, CBR)
-
-    for w in warnings:
+if st.button("Run Design"):
+    for w in validate_inputs(W18, k, CBR):
         st.warning(w)
 
     D = design_slab(W18, R, 0.35, 4.5, 2.5, Ec, Sc, 3.2, 1.0, k)
 
-    st.success(f"✅ Slab Thickness = {D} mm")
+    st.success(f"Slab Thickness = {D} mm")
 
-    # plot
     plot_graph(W18, D)
     st.image("plot.png")
 
-    # pdf
     generate_pdf(D)
 
     with open("AASHTO_Report.pdf", "rb") as f:
-        st.download_button("📄 Download PDF", f, file_name="AASHTO_Report.pdf")
+        st.download_button("Download PDF", f)
