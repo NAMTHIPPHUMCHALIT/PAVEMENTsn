@@ -1,9 +1,14 @@
 import streamlit as st
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 import os
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+# ✅ FIX matplotlib (สำคัญมาก)
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 
 # =============================
@@ -68,10 +73,10 @@ def validate_inputs(W18, k, CBR):
         warnings.append("❌ W18 ต้องมากกว่า 0")
 
     if k < 20:
-        warnings.append("⚠️ k ต่ำมาก อาจทำให้ pavement หนามาก")
+        warnings.append("⚠️ k ต่ำมาก → pavement จะหนามาก")
 
     if CBR < 3:
-        warnings.append("⚠️ CBR ต่ำมาก ต้องปรับปรุงดิน")
+        warnings.append("⚠️ CBR ต่ำมาก → ควรปรับปรุงดิน")
 
     return warnings
 
@@ -106,6 +111,10 @@ def generate_pdf(D):
     story.append(Spacer(1, 20))
     story.append(Paragraph(f"Slab Thickness = {D} mm", styles["Normal"]))
 
+    if os.path.exists("plot.png"):
+        story.append(Spacer(1, 20))
+        story.append(Image("plot.png", width=400, height=250))
+
     doc.build(story)
 
 
@@ -138,11 +147,11 @@ if st.button("🚀 Run Design"):
 
     st.success(f"✅ Slab Thickness = {D} mm")
 
-    # Plot
+    # plot
     plot_graph(W18, D)
     st.image("plot.png")
 
-    # PDF
+    # pdf
     generate_pdf(D)
 
     with open("AASHTO_Report.pdf", "rb") as f:
