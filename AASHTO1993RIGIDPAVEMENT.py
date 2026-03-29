@@ -4,7 +4,7 @@ AASHTO 1993 Rigid Pavement (Concrete) Design Tool
 """
 
 import Streamlit as tk
-from tkinter import ttk, messagebox, filedialog
+from Streamlit import ttk, messagebox, filedialog
 import math
 import os
 import sys
