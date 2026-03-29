@@ -3,7 +3,7 @@ AASHTO 1993 Rigid Pavement (Concrete) Design Tool
 ออกแบบโครงสร้างผิวทางคอนกรีต ตามมาตรฐาน AASHTO 1993
 """
 
-import tkinter as tk
+import Streamlit as tk
 from tkinter import ttk, messagebox, filedialog
 import math
 import os
