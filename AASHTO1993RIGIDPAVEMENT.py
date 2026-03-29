@@ -1,703 +1,814 @@
 """
-AASHTO 1993 Rigid Pavement (Concrete) Design Tool
+AASHTO 1993 Rigid Pavement Design Tool — Streamlit Version
 ออกแบบโครงสร้างผิวทางคอนกรีต ตามมาตรฐาน AASHTO 1993
 """
 
-import Streamlit as tk
-from Streamlit import ttk, messagebox, filedialog
+import streamlit as st
 import math
-import os
-import sys
+import io
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-# AASHTO 1993 RIGID PAVEMENT DESIGN ENGINE
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  PAGE CONFIG
+# ══════════════════════════════════════════════════════
+st.set_page_config(
+    page_title="AASHTO 1993 Rigid Pavement Design",
+    page_icon="🛣️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-def calc_esal(aadt, truck_pct, growth_rate, design_life, ldf=0.5, tff=1.0):
-    """คำนวณ ESAL (Equivalent Single Axle Load)"""
+# ══════════════════════════════════════════════════════
+#  CUSTOM CSS
+# ══════════════════════════════════════════════════════
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sarabun:wght@300;400;600;700&display=swap');
+
+:root {
+  --bg:       #0b1120;
+  --surface:  #131c2e;
+  --panel:    #1a2640;
+  --border:   #243354;
+  --accent:   #3b82f6;
+  --accent2:  #06b6d4;
+  --gold:     #f59e0b;
+  --green:    #10b981;
+  --red:      #ef4444;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --concrete: #94a3b8;
+  --subbase:  #fbbf24;
+  --subgrade: #34d399;
+}
+
+html, body, [data-testid="stAppViewContainer"] {
+    background: var(--bg) !important;
+    font-family: 'Sarabun', sans-serif;
+    color: var(--text);
+}
+
+[data-testid="stSidebar"] {
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border);
+}
+
+[data-testid="stSidebar"] * { color: var(--text) !important; }
+
+h1, h2, h3 { font-family: 'JetBrains Mono', monospace !important; }
+
+.stButton > button {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    padding: 12px 28px !important;
+    width: 100% !important;
+    transition: all 0.2s !important;
+    box-shadow: 0 4px 15px rgba(37,99,235,0.4) !important;
+}
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(37,99,235,0.6) !important;
+}
+
+.result-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+.result-card.highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(59,130,246,0.2);
+}
+
+.metric-box {
+    background: linear-gradient(135deg, var(--surface), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+.metric-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+.metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--accent);
+}
+.metric-unit {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.layer-bar {
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    border-left: 3px solid var(--accent2);
+    padding-left: 10px;
+    margin: 20px 0 12px 0;
+}
+
+.info-tag {
+    display: inline-block;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin: 2px;
+}
+
+.formula-box {
+    background: #0a1628;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.8;
+    margin: 10px 0;
+}
+
+div[data-testid="stNumberInput"] input,
+div[data-testid="stSelectbox"] select {
+    background: #0f172a !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    color: var(--text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+.stSelectbox > div > div {
+    background: #0f172a !important;
+    border-color: var(--border) !important;
+}
+
+[data-testid="stExpander"] {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+}
+
+.stTab [data-baseweb="tab"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 12px !important;
+}
+
+hr { border-color: var(--border) !important; }
+
+.top-header {
+    background: linear-gradient(135deg, #0f1f3d 0%, #1a3464 50%, #0f1f3d 100%);
+    border: 1px solid #243354;
+    border-radius: 14px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.top-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 70% 50%, rgba(59,130,246,0.08) 0%, transparent 60%);
+    pointer-events: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════
+#  DESIGN ENGINE
+# ══════════════════════════════════════════════════════
+
+ZR_TABLE = {
+    50: 0.000, 60: -0.253, 70: -0.524, 75: -0.674,
+    80: -0.841, 85: -1.037, 90: -1.282, 91: -1.340,
+    92: -1.405, 93: -1.476, 94: -1.555, 95: -1.645,
+    96: -1.751, 97: -1.881, 98: -2.054, 99: -2.327,
+}
+
+def get_zr(R):
+    return min(ZR_TABLE.items(), key=lambda x: abs(x[0] - R))[1]
+
+def calc_esal(aadt, truck_pct, growth_rate, design_life, ldf, tff):
     aadt_trucks = aadt * (truck_pct / 100)
-    # Growth factor (geometric series)
-    if growth_rate == 0:
-        gf = design_life
-    else:
-        r = growth_rate / 100
-        gf = ((1 + r)**design_life - 1) / r
-    daily_esal = aadt_trucks * tff * ldf
-    total_esal = daily_esal * 365 * gf
-    return total_esal, gf
+    r = growth_rate / 100
+    gf = design_life if r == 0 else ((1 + r)**design_life - 1) / r
+    return aadt_trucks * tff * ldf * 365 * gf, gf
 
-def aashto93_rigid(W18, ZR, S0, delta_PSI, Pt, E_c, Sc, Cd, J, k):
-    """
-    AASHTO 1993 Rigid Pavement Design Equation (iterative solve for D)
-    
-    log10(W18) = ZR*S0 + 7.35*log10(D+1) - 0.06
-                + log10(delta_PSI/(4.5-1.5)) / (1 + 1.624e7/(D+1)^8.46)
-                + (4.22 - 0.32*Pt)*log10(Sc*Cd*(D^0.75 - 1.132) /
-                  (215.63*J*(D^0.75 - (18.42/(E_c/k)^0.25))))
-
-    Solve for D (slab thickness in inches) by bisection
-    """
+def solve_slab(W18, ZR, S0, delta_PSI, Pt, Ec_psi, Sc_psi, Cd, J, k_pci):
+    """Bisection solve for slab thickness D (inches)"""
     target = math.log10(max(W18, 1))
 
     def f(D):
         if D <= 0:
             return -999
         try:
-            term1 = ZR * S0
-            term2 = 7.35 * math.log10(D + 1) - 0.06
-            term3_num = math.log10(delta_PSI / (4.5 - 1.5))
-            term3_den = 1 + (1.624e7 / (D + 1)**8.46)
-            term3 = term3_num / term3_den
-
-            Ec_k_ratio = E_c / k
-            inner = D**0.75 - (18.42 / (Ec_k_ratio**0.25))
+            t1 = ZR * S0
+            t2 = 7.35 * math.log10(D + 1) - 0.06
+            t3 = math.log10(delta_PSI / 3.0) / (1 + 1.624e7 / (D + 1)**8.46)
+            inner = D**0.75 - 18.42 / (Ec_psi / k_pci)**0.25
             if inner <= 0:
                 return -999
-            numer = Sc * Cd * (D**0.75 - 1.132)
-            denom = 215.63 * J * inner
-            if denom <= 0:
-                return -999
-            term4 = (4.22 - 0.32 * Pt) * math.log10(numer / denom)
-
-            return term1 + term2 + term3 + term4
+            t4 = (4.22 - 0.32 * Pt) * math.log10(Sc_psi * Cd * (D**0.75 - 1.132) / (215.63 * J * inner))
+            return t1 + t2 + t3 + t4
         except:
             return -999
 
-    # Bisection: find D such that f(D) = target
-    lo, hi = 2.0, 24.0
-    for _ in range(100):
+    lo, hi = 2.0, 36.0
+    for _ in range(120):
         mid = (lo + hi) / 2
-        val = f(mid)
-        if val < target:
+        if f(mid) < target:
             lo = mid
         else:
             hi = mid
-        if hi - lo < 0.001:
+        if hi - lo < 0.0005:
             break
-    D_inch = (lo + hi) / 2
-    D_mm = D_inch * 25.4
-    return D_inch, D_mm
+    D = (lo + hi) / 2
+    return D, D * 25.4
 
-def get_subbase_thickness(k_subgrade, D_slab_mm):
-    """กำหนดความหนา Subbase ตามค่า k และความหนาแผ่นคอนกรีต"""
-    # AASHTO guideline: subbase ขั้นต่ำ 100mm, เพิ่มตาม k ต่ำ
-    if k_subgrade < 27:       # Soft (MPa/m)
-        base = 300
-    elif k_subgrade < 55:     # Medium
-        base = 200
-    elif k_subgrade < 110:    # Good
-        base = 150
-    else:                      # Excellent
-        base = 100
-    # เพิ่มเล็กน้อยถ้าแผ่นหนา
-    extra = max(0, (D_slab_mm - 200) * 0.1)
-    return round(base + extra)
+def get_subbase(k_MPa, D_mm):
+    if k_MPa < 27:   base = 300
+    elif k_MPa < 55: base = 200
+    elif k_MPa < 110:base = 150
+    else:            base = 100
+    return int(base + max(0, (D_mm - 200) * 0.08))
 
-def get_subgrade_prep(k_subgrade):
-    """ความหนาชั้น Subgrade Preparation"""
-    if k_subgrade < 27:
-        return 300
-    elif k_subgrade < 55:
-        return 200
-    else:
-        return 150
+def get_subgrade(k_MPa):
+    if k_MPa < 27:   return 300
+    elif k_MPa < 55: return 200
+    else:            return 150
 
-def design_pavement(params):
-    """รันการออกแบบทั้งหมด คืนค่า dict ผลลัพธ์"""
-    # Unpack
-    aadt       = params['aadt']
-    truck_pct  = params['truck_pct']
-    growth     = params['growth_rate']
-    life       = params['design_life']
-    R          = params['reliability']      # %
-    S0         = params['S0']
-    pi         = params['pi']               # Initial PSI
-    pt         = params['pt']               # Terminal PSI
-    Ec         = params['Ec']               # MPa → psi
-    Sc         = params['Sc']               # MR of concrete (psi)
-    Cd         = params['Cd']
-    J          = params['J']
-    k_MPa      = params['k']               # MPa/m (modulus of subgrade reaction)
-    ldf        = params['ldf']
-    tff        = params['tff']
+def design(p):
+    Ec_psi = p['Ec'] * 145.038
+    Sc_psi = p['Sc'] * 145.038
+    k_pci  = p['k'] / 0.2714
+    ZR     = get_zr(p['R'])
+    dPSI   = p['pi'] - p['pt']
 
-    # Convert units
-    Ec_psi  = Ec * 145.038   # MPa → psi
-    Sc_psi  = Sc * 145.038
-    k_pci   = k_MPa / 0.2714  # MPa/m → pci (lb/in³)
-
-    # ZR from reliability
-    zr_table = {50: 0.000, 60: -0.253, 70: -0.524, 75: -0.674,
-                80: -0.841, 85: -1.037, 90: -1.282, 91: -1.340,
-                92: -1.405, 93: -1.476, 94: -1.555, 95: -1.645,
-                96: -1.751, 97: -1.881, 98: -2.054, 99: -2.327, 99.9: -3.090}
-    # Find nearest
-    ZR = min(zr_table.items(), key=lambda x: abs(x[0] - R))[1]
-
-    delta_PSI = pi - pt
-
-    # ESAL
-    W18, gf = calc_esal(aadt, truck_pct, growth, life, ldf, tff)
-
-    # Solve slab thickness
-    D_in, D_mm = aashto93_rigid(W18, ZR, S0, delta_PSI, pt, Ec_psi, Sc_psi, Cd, J, k_pci)
-
-    # Round up to nearest 25mm
+    W18, gf = calc_esal(p['aadt'], p['truck_pct'], p['growth'], p['life'], p['ldf'], p['tff'])
+    D_in, D_mm = solve_slab(W18, ZR, p['S0'], dPSI, p['pt'], Ec_psi, Sc_psi, p['Cd'], p['J'], k_pci)
     D_design_mm = math.ceil(D_mm / 25) * 25
     D_design_in = D_design_mm / 25.4
 
-    # Sub-layers
-    subbase_mm = get_subbase_thickness(k_MPa, D_design_mm)
-    subgrade_mm = get_subgrade_prep(k_MPa)
-
-    # Total
-    total_mm = D_design_mm + subbase_mm + subgrade_mm
+    sub_mm  = get_subbase(p['k'], D_design_mm)
+    sgrd_mm = get_subgrade(p['k'])
 
     return {
-        'W18': W18,
-        'ZR': ZR,
-        'delta_PSI': delta_PSI,
-        'growth_factor': gf,
-        'D_calc_mm': D_mm,
-        'D_design_mm': D_design_mm,
-        'D_design_in': D_design_in,
-        'subbase_mm': subbase_mm,
-        'subgrade_mm': subgrade_mm,
-        'total_mm': total_mm,
-        'k_pci': k_pci,
-        'Ec_psi': Ec_psi,
-        'Sc_psi': Sc_psi,
-        'params': params,
+        'W18': W18, 'gf': gf, 'ZR': ZR, 'dPSI': dPSI,
+        'D_calc_mm': D_mm, 'D_calc_in': D_in,
+        'D_mm': D_design_mm, 'D_in': D_design_in,
+        'sub_mm': sub_mm, 'sgrd_mm': sgrd_mm,
+        'total_mm': D_design_mm + sub_mm + sgrd_mm,
+        'Ec_psi': Ec_psi, 'Sc_psi': Sc_psi, 'k_pci': k_pci,
+        'p': p,
     }
 
 
-# ─────────────────────────────────────────────
-# PDF REPORT GENERATOR
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  PDF GENERATOR
+# ══════════════════════════════════════════════════════
 
-def generate_pdf(result, filepath):
+def make_pdf(r):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.lib.units import mm, cm
+    from reportlab.lib.units import mm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                      Table, TableStyle, HRFlowable)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    from reportlab.pdfgen import canvas as rl_canvas
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
-    p = result['params']
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=20*mm, bottomMargin=20*mm)
 
-    # Colors
-    PRIMARY   = colors.HexColor('#1a365d')
-    ACCENT    = colors.HexColor('#2b6cb0')
-    LIGHT     = colors.HexColor('#ebf8ff')
-    CONCRETE  = colors.HexColor('#e2e8f0')
-    SUBBASE   = colors.HexColor('#fef3c7')
-    SUBGRADE  = colors.HexColor('#d1fae5')
-    GRAY      = colors.HexColor('#718096')
+    C_DARK  = colors.HexColor('#0f1f3d')
+    C_BLUE  = colors.HexColor('#1d4ed8')
+    C_CYAN  = colors.HexColor('#0891b2')
+    C_LIGHT = colors.HexColor('#eff6ff')
+    C_CON   = colors.HexColor('#dbeafe')
+    C_SUB   = colors.HexColor('#fef3c7')
+    C_SGRD  = colors.HexColor('#d1fae5')
+    C_GRAY  = colors.HexColor('#64748b')
+    C_WHITE = colors.white
 
-    doc = SimpleDocTemplate(filepath, pagesize=A4,
-                            rightMargin=20*mm, leftMargin=20*mm,
-                            topMargin=20*mm, bottomMargin=20*mm)
-    story = []
     styles = getSampleStyleSheet()
+    def S(name, **kw):
+        return ParagraphStyle(name, **kw)
 
-    title_style = ParagraphStyle('Title', fontSize=16, fontName='Helvetica-Bold',
-                                  textColor=PRIMARY, alignment=TA_CENTER, spaceAfter=4)
-    sub_style   = ParagraphStyle('Sub', fontSize=10, fontName='Helvetica',
-                                  textColor=GRAY, alignment=TA_CENTER, spaceAfter=12)
-    head_style  = ParagraphStyle('Head', fontSize=12, fontName='Helvetica-Bold',
-                                  textColor=PRIMARY, spaceBefore=12, spaceAfter=6)
-    normal      = ParagraphStyle('Norm', fontSize=9, fontName='Helvetica',
-                                  textColor=colors.black, spaceAfter=2)
-    bold_norm   = ParagraphStyle('BNorm', fontSize=9, fontName='Helvetica-Bold',
-                                  textColor=colors.black)
+    T  = S('TT', fontSize=17, fontName='Helvetica-Bold', textColor=C_DARK,  alignment=TA_CENTER, spaceAfter=4)
+    ST = S('ST', fontSize=10, fontName='Helvetica',      textColor=C_GRAY,  alignment=TA_CENTER, spaceAfter=10)
+    H  = S('H',  fontSize=12, fontName='Helvetica-Bold', textColor=C_BLUE,  spaceBefore=14, spaceAfter=6)
+    N  = S('N',  fontSize=9,  fontName='Helvetica',      textColor=colors.black, spaceAfter=3)
+    NB = S('NB', fontSize=9,  fontName='Helvetica-Bold', textColor=colors.black)
 
-    # ── Header ──
-    story.append(Paragraph("รายงานการออกแบบโครงสร้างผิวทางคอนกรีต", title_style))
-    story.append(Paragraph("Rigid Pavement Design Report  |  AASHTO 1993", sub_style))
-    story.append(Paragraph(f"วันที่ออกแบบ: {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
-    story.append(HRFlowable(width="100%", thickness=2, color=PRIMARY, spaceAfter=12))
+    p = r['p']
+    story = []
 
-    # ── Input Parameters ──
-    story.append(Paragraph("1. ข้อมูลนำเข้า (Input Parameters)", head_style))
-    inp_data = [
-        ['พารามิเตอร์', 'ค่าที่ใช้', 'หน่วย'],
-        ['AADT (ปริมาณจราจรเฉลี่ยต่อวัน)', f"{p['aadt']:,.0f}", 'คัน/วัน'],
-        ['สัดส่วนรถบรรทุก', f"{p['truck_pct']:.1f}", '%'],
-        ['อัตราการเติบโตของจราจร', f"{p['growth_rate']:.1f}", '%/ปี'],
-        ['อายุออกแบบ', f"{p['design_life']:.0f}", 'ปี'],
-        ['ความน่าเชื่อถือ (R)', f"{p['reliability']:.0f}", '%'],
-        ['ค่าเบี่ยงเบน ZR', f"{result['ZR']:.3f}", '-'],
-        ['Overall Standard Deviation (S0)', f"{p['S0']:.2f}", '-'],
-        ['Initial PSI (pi)', f"{p['pi']:.1f}", '-'],
-        ['Terminal PSI (pt)', f"{p['pt']:.1f}", '-'],
-        ['ΔPsi', f"{result['delta_PSI']:.1f}", '-'],
-        ['Modulus of Elasticity of Concrete (Ec)', f"{p['Ec']:,.0f}", 'MPa'],
-        ['Modulus of Rupture (Sc)', f"{p['Sc']:.1f}", 'MPa'],
-        ['Drainage Coefficient (Cd)', f"{p['Cd']:.2f}", '-'],
-        ['Load Transfer Coefficient (J)', f"{p['J']:.1f}", '-'],
-        ['Modulus of Subgrade Reaction (k)', f"{p['k']:.0f}", 'MPa/m'],
-        ['Lane Distribution Factor', f"{p['ldf']:.2f}", '-'],
-        ['Truck Factor (TFF)', f"{p['tff']:.2f}", '-'],
-    ]
-    col_w = [85*mm, 40*mm, 30*mm]
-    t = Table(inp_data, colWidths=col_w)
+    story.append(Paragraph("รายงานการออกแบบโครงสร้างผิวทางคอนกรีต", T))
+    story.append(Paragraph("Rigid Pavement Design Report  ·  AASHTO 1993 Standard", ST))
+    story.append(Paragraph(f"วันที่ออกแบบ: {datetime.now().strftime('%d/%m/%Y  %H:%M น.')}", ST))
+    story.append(HRFlowable(width="100%", thickness=2, color=C_BLUE, spaceAfter=10))
+
+    # ── Input ──
+    story.append(Paragraph("1. ข้อมูลนำเข้า (Input Parameters)", H))
+    cw = [90*mm, 45*mm, 25*mm]
+    rows = [['พารามิเตอร์', 'ค่าที่ใช้', 'หน่วย'],
+            ['AADT (ปริมาณจราจรเฉลี่ยต่อวัน)', f"{p['aadt']:,.0f}", 'คัน/วัน'],
+            ['สัดส่วนรถบรรทุก', f"{p['truck_pct']:.1f}", '%'],
+            ['อัตราการเติบโตของจราจร', f"{p['growth']:.1f}", '%/ปี'],
+            ['อายุออกแบบ', f"{p['life']:.0f}", 'ปี'],
+            ['ความน่าเชื่อถือ (R)', f"{p['R']:.0f}", '%'],
+            ['Overall Std Deviation (S0)', f"{p['S0']:.2f}", '-'],
+            ['Initial PSI (pi)', f"{p['pi']:.1f}", '-'],
+            ['Terminal PSI (pt)', f"{p['pt']:.1f}", '-'],
+            ['Modulus of Elasticity of Concrete', f"{p['Ec']:,.0f}", 'MPa'],
+            ['Modulus of Rupture (Sc)', f"{p['Sc']:.2f}", 'MPa'],
+            ['Drainage Coefficient (Cd)', f"{p['Cd']:.2f}", '-'],
+            ['Load Transfer Coefficient (J)', f"{p['J']:.1f}", '-'],
+            ['Modulus of Subgrade Reaction (k)', f"{p['k']:.0f}", 'MPa/m'],
+            ['Lane Distribution Factor', f"{p['ldf']:.2f}", '-'],
+            ['Truck Factor (TFF)', f"{p['tff']:.2f}", '-']]
+
+    t = Table(rows, colWidths=cw)
     t.setStyle(TableStyle([
-        ('BACKGROUND',   (0,0), (-1,0), PRIMARY),
-        ('TEXTCOLOR',    (0,0), (-1,0), colors.white),
-        ('FONTNAME',     (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',     (0,0), (-1,-1), 9),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, LIGHT]),
-        ('GRID',         (0,0), (-1,-1), 0.5, colors.lightgrey),
-        ('ALIGN',        (1,0), (-1,-1), 'CENTER'),
-        ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+        ('BACKGROUND',    (0,0), (-1,0), C_BLUE),
+        ('TEXTCOLOR',     (0,0), (-1,0), C_WHITE),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,-1), 9),
+        ('ROWBACKGROUNDS',(0,1), (-1,-1), [C_WHITE, C_LIGHT]),
+        ('GRID',          (0,0), (-1,-1), 0.4, colors.lightgrey),
+        ('ALIGN',         (1,0), (-1,-1), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t)
 
-    # ── Calculation Results ──
-    story.append(Paragraph("2. ผลการคำนวณ (Design Results)", head_style))
-    calc_data = [
-        ['รายการ', 'ผลการคำนวณ', 'หน่วย'],
-        ['Growth Factor (GF)', f"{result['growth_factor']:.3f}", '-'],
-        ['18-kip ESAL สะสมตลอดอายุออกแบบ', f"{result['W18']:,.0f}", 'ESAL'],
-        ['k (แปลง)', f"{result['k_pci']:.1f}", 'pci'],
-        ['Ec (แปลง)', f"{result['Ec_psi']:,.0f}", 'psi'],
-        ['Sc (แปลง)', f"{result['Sc_psi']:.1f}", 'psi'],
-        ['ความหนาคอนกรีตที่คำนวณได้', f"{result['D_calc_mm']:.1f}", 'mm'],
-        ['ความหนาคอนกรีตที่ออกแบบ (ปัดขึ้น 25mm)', f"{result['D_design_mm']:.0f}", 'mm'],
-    ]
-    t2 = Table(calc_data, colWidths=col_w)
+    # ── Calc ──
+    story.append(Paragraph("2. ผลการคำนวณกลาง (Intermediate Results)", H))
+    rows2 = [['รายการ', 'ค่า', 'หน่วย'],
+             ['Growth Factor (GF)', f"{r['gf']:.3f}", '-'],
+             ['ZR (Standard Normal Deviate)', f"{r['ZR']:.3f}", '-'],
+             ['ΔPSi (pi - pt)', f"{r['dPSI']:.1f}", '-'],
+             ['18-kip ESAL สะสม', f"{r['W18']:,.0f}", 'ESAL'],
+             ['k (แปลงหน่วย)', f"{r['k_pci']:.1f}", 'pci'],
+             ['Ec (แปลงหน่วย)', f"{r['Ec_psi']:,.0f}", 'psi'],
+             ['Sc (แปลงหน่วย)', f"{r['Sc_psi']:.1f}", 'psi'],
+             ['ความหนาคำนวณ (D computed)', f"{r['D_calc_mm']:.1f}", 'mm'],
+             ['ความหนาออกแบบ (ปัดขึ้น 25 mm)', f"{r['D_mm']:.0f}", 'mm']]
+
+    t2 = Table(rows2, colWidths=cw)
     t2.setStyle(TableStyle([
-        ('BACKGROUND',   (0,0), (-1,0), ACCENT),
-        ('TEXTCOLOR',    (0,0), (-1,0), colors.white),
-        ('FONTNAME',     (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',     (0,0), (-1,-1), 9),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, LIGHT]),
-        ('GRID',         (0,0), (-1,-1), 0.5, colors.lightgrey),
-        ('ALIGN',        (1,0), (-1,-1), 'CENTER'),
-        ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+        ('BACKGROUND',    (0,0), (-1,0), C_CYAN),
+        ('TEXTCOLOR',     (0,0), (-1,0), C_WHITE),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,-1), 9),
+        ('ROWBACKGROUNDS',(0,1), (-1,-1), [C_WHITE, C_LIGHT]),
+        ('GRID',          (0,0), (-1,-1), 0.4, colors.lightgrey),
+        ('ALIGN',         (1,0), (-1,-1), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t2)
 
     # ── Layer Summary ──
-    story.append(Paragraph("3. สรุปความหนาโครงสร้างทาง (Pavement Layer Summary)", head_style))
-    layers = [
-        ['ชั้นทาง', 'วัสดุ', 'ความหนา (mm)', 'ความหนา (inch)'],
-        ['ชั้นที่ 1 - Concrete Slab', 'Portland Cement Concrete',
-         str(result['D_design_mm']), f"{result['D_design_in']:.2f}"],
-        ['ชั้นที่ 2 - Subbase', 'Granular Subbase / Lean Concrete',
-         str(result['subbase_mm']), f"{result['subbase_mm']/25.4:.2f}"],
-        ['ชั้นที่ 3 - Subgrade Prep', 'Compacted Subgrade',
-         str(result['subgrade_mm']), f"{result['subgrade_mm']/25.4:.2f}"],
-        ['รวมทั้งหมด', '', str(result['total_mm']),
-         f"{result['total_mm']/25.4:.2f}"],
-    ]
-    t3 = Table(layers, colWidths=[55*mm, 55*mm, 30*mm, 30*mm - 5])
+    story.append(Paragraph("3. สรุปความหนาโครงสร้างทาง (Pavement Layer Summary)", H))
+    rows3 = [['ชั้นทาง', 'วัสดุ', 'ความหนา (mm)', '(inch)'],
+             ['Concrete Slab', 'Portland Cement Concrete',
+              str(r['D_mm']),  f"{r['D_in']:.2f}"],
+             ['Subbase', 'Granular / Lean Concrete',
+              str(r['sub_mm']), f"{r['sub_mm']/25.4:.2f}"],
+             ['Subgrade Prep', 'Compacted Subgrade',
+              str(r['sgrd_mm']), f"{r['sgrd_mm']/25.4:.2f}"],
+             ['รวม / Total', '',
+              str(r['total_mm']), f"{r['total_mm']/25.4:.2f}"]]
+
+    cw3 = [55*mm, 55*mm, 30*mm, 22*mm]
+    t3 = Table(rows3, colWidths=cw3)
     t3.setStyle(TableStyle([
-        ('BACKGROUND',   (0,0), (-1,0), PRIMARY),
-        ('TEXTCOLOR',    (0,0), (-1,0), colors.white),
-        ('FONTNAME',     (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',     (0,0), (-1,-1), 9),
-        ('BACKGROUND',   (0,1), (-1,1), CONCRETE),
-        ('BACKGROUND',   (0,2), (-1,2), SUBBASE),
-        ('BACKGROUND',   (0,3), (-1,3), SUBGRADE),
-        ('BACKGROUND',   (0,4), (-1,4), colors.HexColor('#1a365d')),
-        ('TEXTCOLOR',    (0,4), (-1,4), colors.white),
-        ('FONTNAME',     (0,4), (-1,4), 'Helvetica-Bold'),
-        ('GRID',         (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN',        (2,0), (-1,-1), 'CENTER'),
-        ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 5),
+        ('BACKGROUND',    (0,0), (-1,0), C_DARK),
+        ('TEXTCOLOR',     (0,0), (-1,0), C_WHITE),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,-1), 9),
+        ('BACKGROUND',    (0,1), (-1,1), C_CON),
+        ('BACKGROUND',    (0,2), (-1,2), C_SUB),
+        ('BACKGROUND',    (0,3), (-1,3), C_SGRD),
+        ('BACKGROUND',    (0,4), (-1,4), C_DARK),
+        ('TEXTCOLOR',     (0,4), (-1,4), C_WHITE),
+        ('FONTNAME',      (0,4), (-1,4), 'Helvetica-Bold'),
+        ('GRID',          (0,0), (-1,-1), 0.4, colors.grey),
+        ('ALIGN',         (2,0), (-1,-1), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
     ]))
     story.append(t3)
 
-    # ── Section Diagram ──
+    # ── Cross section visual ──
     story.append(Spacer(1, 8*mm))
-    story.append(Paragraph("4. หน้าตัดโครงสร้างผิวทาง (Cross Section)", head_style))
+    story.append(Paragraph("4. แผนภาพหน้าตัดโครงสร้าง (Cross Section Diagram)", H))
 
-    # Draw cross-section as a table visual
-    total = result['total_mm']
-    layers_draw = [
-        (result['D_design_mm'],  CONCRETE, "Concrete Slab",   f"{result['D_design_mm']} mm"),
-        (result['subbase_mm'],   SUBBASE,  "Subbase",          f"{result['subbase_mm']} mm"),
-        (result['subgrade_mm'],  SUBGRADE, "Subgrade Prep",    f"{result['subgrade_mm']} mm"),
+    total = r['total_mm']
+    layers_vis = [
+        (r['D_mm'],    C_CON,  f"Concrete Slab  —  {r['D_mm']} mm  ({r['D_in']:.2f}\")"),
+        (r['sub_mm'],  C_SUB,  f"Subbase  —  {r['sub_mm']} mm"),
+        (r['sgrd_mm'], C_SGRD, f"Subgrade Prep  —  {r['sgrd_mm']} mm"),
     ]
-    sec_data = []
-    for thick, col, name, t_str in layers_draw:
-        pct = thick / total
-        rows = max(1, round(pct * 8))
-        for i in range(rows):
-            if i == rows // 2:
-                sec_data.append([f"{name}  —  {t_str}"])
+    sec = []
+    sec_styles = []
+    row_i = 0
+    for thick, col, label in layers_vis:
+        n_rows = max(1, round((thick / total) * 10))
+        for i in range(n_rows):
+            if i == n_rows // 2:
+                sec.append([label])
             else:
-                sec_data.append([""])
+                sec.append([""])
+            sec_styles.append(('BACKGROUND', (0, row_i), (0, row_i), col))
+            row_i += 1
 
-    sec_style = []
-    row = 0
-    for thick, col, name, t_str in layers_draw:
-        pct = thick / total
-        rows = max(1, round(pct * 8))
-        for i in range(rows):
-            sec_style.append(('BACKGROUND', (0, row), (0, row), col))
-            row += 1
-
-    sec_table = Table(sec_data, colWidths=[155*mm])
-    sec_table.setStyle(TableStyle([
+    ts3 = Table(sec, colWidths=[160*mm])
+    ts3.setStyle(TableStyle([
         ('FONTNAME',     (0,0), (-1,-1), 'Helvetica'),
         ('FONTSIZE',     (0,0), (-1,-1), 9),
         ('ALIGN',        (0,0), (-1,-1), 'CENTER'),
         ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-        ('ROWHEIGHT',    (0,0), (-1,-1), 10),
-        ('BOX',          (0,0), (-1,-1), 1, PRIMARY),
-        ('INNERGRID',    (0,0), (-1,-1), 0.3, colors.grey),
-    ] + sec_style))
-    story.append(sec_table)
+        ('ROWHEIGHT',    (0,0), (-1,-1), 12),
+        ('BOX',          (0,0), (-1,-1), 1.5, C_DARK),
+        ('INNERGRID',    (0,0), (-1,-1), 0.3, colors.lightgrey),
+    ] + sec_styles))
+    story.append(ts3)
 
     # ── Notes ──
     story.append(Spacer(1, 6*mm))
-    story.append(HRFlowable(width="100%", thickness=1, color=GRAY, spaceAfter=6))
-    story.append(Paragraph("หมายเหตุ / Notes", bold_norm))
-    notes = [
-        "• การออกแบบใช้สมการ AASHTO 1993 Guide for Design of Pavement Structures",
-        "• ความหนาแผ่นคอนกรีตปัดขึ้นทุก 25 mm ตามมาตรฐาน",
-        "• ควรตรวจสอบความหนา Subbase ตามมาตรฐานกรมทางหลวงไทย",
-        "• ค่า k ที่ใช้คือ Composite k หลังจากวาง Subbase แล้ว",
-        "• ESAL คำนวณจากปริมาณจราจร อัตราเติบโต และ Truck Factor",
-    ]
-    for note in notes:
-        story.append(Paragraph(note, normal))
+    story.append(HRFlowable(width="100%", thickness=1, color=C_GRAY, spaceAfter=6))
+    story.append(Paragraph("หมายเหตุ / Notes", NB))
+    for n_txt in [
+        "• ออกแบบตาม AASHTO 1993 Guide for Design of Pavement Structures",
+        "• ความหนาแผ่นคอนกรีตปัดขึ้นทุก 25 mm",
+        "• ควรตรวจสอบ Subbase ตามมาตรฐานกรมทางหลวงหรือ AASHTO เพิ่มเติม",
+        "• ค่า k ที่ใช้คือ Composite k หลังวาง Subbase",
+        "• ESAL คำนวณจาก AADT × Truck% × LDF × TFF × 365 × GF",
+    ]:
+        story.append(Paragraph(n_txt, N))
 
     doc.build(story)
+    buf.seek(0)
+    return buf.read()
 
 
-# ─────────────────────────────────────────────
-# TKINTER GUI
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  MAIN APP
+# ══════════════════════════════════════════════════════
 
-class PavementApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("AASHTO 1993 — Rigid Pavement Design")
-        self.geometry("1100x780")
-        self.resizable(True, True)
-        self.configure(bg="#0f172a")
-        self.result = None
+def main():
+    # ── Top Header ──
+    st.markdown("""
+    <div class="top-header">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:11px;
+                  color:#3b82f6; letter-spacing:0.15em; margin-bottom:6px;">
+        AASHTO 1993 STANDARD
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:28px;
+                  font-weight:700; color:#e2e8f0; line-height:1.2;">
+        Rigid Pavement Design
+      </div>
+      <div style="font-size:15px; color:#94a3b8; margin-top:6px;">
+        ออกแบบโครงสร้างผิวทางคอนกรีต — Portland Cement Concrete Pavement
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        self._build_style()
-        self._build_ui()
+    # ── Sidebar Inputs ──
+    with st.sidebar:
+        st.markdown("""
+        <div style="font-family:'JetBrains Mono',monospace; font-size:13px;
+                    font-weight:700; color:#60a5fa; padding:8px 0 14px 0;
+                    border-bottom:1px solid #243354; margin-bottom:16px;">
+          ⚙️  ข้อมูลนำเข้า (Input)
+        </div>
+        """, unsafe_allow_html=True)
 
-    def _build_style(self):
-        style = ttk.Style(self)
-        style.theme_use('clam')
-        style.configure('TNotebook',        background='#0f172a', borderwidth=0)
-        style.configure('TNotebook.Tab',    background='#1e293b', foreground='#94a3b8',
-                         padding=[14, 6], font=('Consolas', 9, 'bold'))
-        style.map('TNotebook.Tab',
-                  background=[('selected', '#2563eb')],
-                  foreground=[('selected', 'white')])
-        style.configure('TFrame',           background='#0f172a')
-        style.configure('TLabel',           background='#0f172a', foreground='#e2e8f0',
-                         font=('Consolas', 9))
-        style.configure('TEntry',           fieldbackground='#1e293b', foreground='#f1f5f9',
-                         insertcolor='white', font=('Consolas', 10), borderwidth=1,
-                         relief='solid')
-        style.configure('TCombobox',        fieldbackground='#1e293b', foreground='#f1f5f9',
-                         font=('Consolas', 10))
-        style.configure('TLabelframe',      background='#0f172a', foreground='#60a5fa',
-                         font=('Consolas', 9, 'bold'), borderwidth=1, relief='solid')
-        style.configure('TLabelframe.Label',background='#0f172a', foreground='#60a5fa',
-                         font=('Consolas', 9, 'bold'))
+        # ── Traffic ──
+        st.markdown('<div class="section-title">🚛 ข้อมูลจราจร</div>', unsafe_allow_html=True)
+        aadt      = st.number_input("AADT (คัน/วัน)",          min_value=100,  max_value=500000, value=5000,  step=100)
+        truck_pct = st.number_input("สัดส่วนรถบรรทุก (%)",      min_value=1.0,  max_value=100.0,  value=15.0,  step=0.5)
+        growth    = st.number_input("อัตราเติบโตจราจร (%/ปี)",  min_value=0.0,  max_value=20.0,   value=3.0,   step=0.5)
+        life      = st.number_input("อายุออกแบบ (ปี)",           min_value=5,    max_value=50,     value=20,    step=5)
+        ldf       = st.number_input("Lane Dist. Factor",         min_value=0.1,  max_value=1.0,    value=0.5,   step=0.05,
+                                     help="0.4–0.9 แล้วแต่จำนวนช่องจราจร")
+        tff       = st.number_input("Truck Factor (ESAL/truck)", min_value=0.1,  max_value=10.0,   value=1.0,   step=0.1,
+                                     help="ค่า Equivalency Factor เฉลี่ย")
 
-    def _lbl_entry(self, parent, row, text, default, unit="", tip=""):
-        ttk.Label(parent, text=text).grid(row=row, column=0, sticky='w', pady=3, padx=4)
-        var = tk.StringVar(value=str(default))
-        e = ttk.Entry(parent, textvariable=var, width=12)
-        e.grid(row=row, column=1, padx=8, pady=3)
-        if unit:
-            ttk.Label(parent, text=unit, foreground='#94a3b8').grid(row=row, column=2, sticky='w')
-        if tip:
-            ttk.Label(parent, text=f"  ← {tip}", foreground='#475569',
-                       font=('Consolas', 8)).grid(row=row, column=3, sticky='w')
-        return var
+        # ── Reliability ──
+        st.markdown('<div class="section-title">📊 ความน่าเชื่อถือ</div>', unsafe_allow_html=True)
+        R_opts = [50, 60, 70, 75, 80, 85, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+        R = st.selectbox("Reliability R (%)", R_opts,
+                          index=R_opts.index(95),
+                          help="ทางสายหลัก 95-99%, ทางรอง 80-90%")
+        S0 = st.number_input("Overall Std Dev (S0)", min_value=0.2, max_value=0.5, value=0.35, step=0.01,
+                              help="Rigid: 0.30–0.40")
+        pi = st.number_input("Initial PSI (pi)",     min_value=3.0, max_value=5.0, value=4.5,  step=0.1)
+        pt = st.number_input("Terminal PSI (pt)",    min_value=1.5, max_value=3.5, value=2.5,  step=0.1)
 
-    def _build_ui(self):
-        # Top bar
-        top = tk.Frame(self, bg='#0f172a', pady=10)
-        top.pack(fill='x', padx=20)
-        tk.Label(top, text="AASHTO 1993", bg='#0f172a', fg='#2563eb',
-                  font=('Consolas', 22, 'bold')).pack(side='left')
-        tk.Label(top, text="  RIGID PAVEMENT DESIGN", bg='#0f172a', fg='#94a3b8',
-                  font=('Consolas', 13)).pack(side='left')
+        # ── Material ──
+        st.markdown('<div class="section-title">🏗️ คุณสมบัติวัสดุ</div>', unsafe_allow_html=True)
 
-        # Main frame split
-        main = tk.Frame(self, bg='#0f172a')
-        main.pack(fill='both', expand=True, padx=16, pady=4)
-
-        # Left: inputs
-        left = tk.Frame(main, bg='#0f172a')
-        left.pack(side='left', fill='y', padx=(0,10))
-
-        # Right: output
-        right = tk.Frame(main, bg='#0f172a')
-        right.pack(side='left', fill='both', expand=True)
-
-        # ── INPUT NOTEBOOK ──
-        nb = ttk.Notebook(left)
-        nb.pack(fill='both', expand=True)
-
-        # Tab 1: Traffic
-        t1 = ttk.Frame(nb)
-        nb.add(t1, text='🚛  จราจร')
-        self.v_aadt      = self._lbl_entry(t1, 0, 'AADT (คัน/วัน)',      5000,   'คัน/วัน')
-        self.v_truck_pct = self._lbl_entry(t1, 1, 'สัดส่วนรถบรรทุก',      15,     '%')
-        self.v_growth    = self._lbl_entry(t1, 2, 'อัตราเติบโต',           3,      '%/ปี')
-        self.v_life      = self._lbl_entry(t1, 3, 'อายุออกแบบ',            20,     'ปี')
-        self.v_ldf       = self._lbl_entry(t1, 4, 'Lane Dist. Factor',     0.5,    '',   '0.4–0.9')
-        self.v_tff       = self._lbl_entry(t1, 5, 'Truck Factor (TFF)',    1.0,    '',   'ESAL/truck')
-
-        # Tab 2: Reliability
-        t2 = ttk.Frame(nb)
-        nb.add(t2, text='📊  ความน่าเชื่อถือ')
-        r_opts = ['50','60','70','75','80','85','90','91','92','93','94','95','96','97','98','99']
-        ttk.Label(t2, text='Reliability (R)').grid(row=0, column=0, sticky='w', pady=3, padx=4)
-        self.v_R = tk.StringVar(value='95')
-        ttk.Combobox(t2, textvariable=self.v_R, values=r_opts, width=10,
-                      state='readonly').grid(row=0, column=1, padx=8, pady=3)
-        ttk.Label(t2, text='%', foreground='#94a3b8').grid(row=0, column=2, sticky='w')
-        self.v_S0 = self._lbl_entry(t2, 1, 'Std Deviation (S0)', 0.35, '',  '0.30–0.40')
-        self.v_pi = self._lbl_entry(t2, 2, 'Initial PSI (pi)',   4.5,  '',  '4.2–4.5')
-        self.v_pt = self._lbl_entry(t2, 3, 'Terminal PSI (pt)',  2.5,  '',  '2.0–3.0')
-
-        # Tab 3: Material
-        t3 = ttk.Frame(nb)
-        nb.add(t3, text='🏗️  วัสดุ')
-        self.v_Ec  = self._lbl_entry(t3, 0, "Elastic Modulus (Ec)",    27500, 'MPa', '20000-35000')
-        self.v_Sc  = self._lbl_entry(t3, 1, "Modulus of Rupture (Sc)", 4.5,   'MPa', '4.0-5.5')
-        self.v_Cd  = self._lbl_entry(t3, 2, "Drainage Coeff (Cd)",     1.0,   '',    '0.7–1.25')
-        self.v_J   = self._lbl_entry(t3, 3, "Load Transfer (J)",       3.2,   '',    '2.5–4.4')
-        self.v_k   = self._lbl_entry(t3, 4, "Subgrade k",              54,    'MPa/m','27-270')
-
-        # Preset buttons
-        tk.Label(t3, text='Preset วัสดุ:', bg='#0f172a', fg='#94a3b8',
-                  font=('Consolas', 8)).grid(row=5, column=0, sticky='w', pady=(10,2), padx=4)
-        pbf = tk.Frame(t3, bg='#0f172a')
-        pbf.grid(row=6, column=0, columnspan=4, sticky='w', padx=4)
-
-        presets = [('ทั่วไป', 27500, 4.5, 1.0, 3.2, 54),
-                   ('คุณภาพสูง', 30000, 5.0, 1.1, 2.8, 80),
-                   ('ดินอ่อน', 25000, 4.2, 0.9, 3.8, 27)]
-        for name, ec, sc, cd, j, k in presets:
-            def make_cmd(e=ec, s=sc, c=cd, jj=j, kk=k):
-                def cmd():
-                    self.v_Ec.set(e); self.v_Sc.set(s)
-                    self.v_Cd.set(c); self.v_J.set(jj); self.v_k.set(kk)
-                return cmd
-            tk.Button(pbf, text=name, command=make_cmd(),
-                       bg='#1e3a5f', fg='#93c5fd', font=('Consolas', 8),
-                       relief='flat', padx=6, pady=2, cursor='hand2').pack(side='left', padx=3)
-
-        # ── CALCULATE BUTTON ──
-        calc_btn = tk.Button(left, text="▶  คำนวณ  /  DESIGN",
-                              command=self.run_design,
-                              bg='#2563eb', fg='white',
-                              font=('Consolas', 11, 'bold'),
-                              relief='flat', padx=20, pady=10, cursor='hand2',
-                              activebackground='#1d4ed8', activeforeground='white')
-        calc_btn.pack(fill='x', pady=(10, 4))
-
-        pdf_btn = tk.Button(left, text="📄  Export PDF",
-                             command=self.export_pdf,
-                             bg='#166534', fg='#86efac',
-                             font=('Consolas', 10, 'bold'),
-                             relief='flat', padx=20, pady=8, cursor='hand2',
-                             activebackground='#15803d', activeforeground='white')
-        pdf_btn.pack(fill='x', pady=2)
-
-        # ── OUTPUT PANEL ──
-        out_frame = tk.Frame(right, bg='#0f172a')
-        out_frame.pack(fill='both', expand=True)
-
-        tk.Label(out_frame, text="ผลการออกแบบ  /  Design Output",
-                  bg='#0f172a', fg='#60a5fa',
-                  font=('Consolas', 11, 'bold')).pack(anchor='w', pady=(0,6))
-
-        # Result canvas
-        self.canvas = tk.Canvas(out_frame, bg='#0f172a', highlightthickness=0)
-        self.canvas.pack(fill='both', expand=True)
-
-        self._draw_placeholder()
-
-    def _draw_placeholder(self):
-        self.canvas.delete('all')
-        w = self.canvas.winfo_width() or 550
-        h = self.canvas.winfo_height() or 600
-        self.canvas.create_text(w//2, h//2, text="กรอกข้อมูลแล้วกด\n▶  คำนวณ",
-                                  fill='#334155', font=('Consolas', 14), justify='center')
-
-    def _get_params(self):
-        return {
-            'aadt':        float(self.v_aadt.get()),
-            'truck_pct':   float(self.v_truck_pct.get()),
-            'growth_rate': float(self.v_growth.get()),
-            'design_life': float(self.v_life.get()),
-            'reliability': float(self.v_R.get()),
-            'S0':          float(self.v_S0.get()),
-            'pi':          float(self.v_pi.get()),
-            'pt':          float(self.v_pt.get()),
-            'Ec':          float(self.v_Ec.get()),
-            'Sc':          float(self.v_Sc.get()),
-            'Cd':          float(self.v_Cd.get()),
-            'J':           float(self.v_J.get()),
-            'k':           float(self.v_k.get()),
-            'ldf':         float(self.v_ldf.get()),
-            'tff':         float(self.v_tff.get()),
+        preset = st.selectbox("Preset วัสดุ", ["กำหนดเอง", "มาตรฐานทั่วไป", "คุณภาพสูง", "ดินฐานอ่อน"])
+        presets_data = {
+            "มาตรฐานทั่วไป": (27500, 4.50, 1.00, 3.2, 54),
+            "คุณภาพสูง":     (30000, 5.00, 1.10, 2.8, 80),
+            "ดินฐานอ่อน":   (25000, 4.20, 0.90, 3.8, 27),
+            "กำหนดเอง":      (27500, 4.50, 1.00, 3.2, 54),
         }
+        def_ec, def_sc, def_cd, def_j, def_k = presets_data[preset]
 
-    def run_design(self):
-        try:
-            params = self._get_params()
-            self.result = design_pavement(params)
-            self._draw_results(self.result)
-        except Exception as e:
-            messagebox.showerror("Error", f"ตรวจสอบค่าที่กรอก:\n{e}")
+        Ec = st.number_input("Elastic Modulus Ec (MPa)",    min_value=10000, max_value=50000, value=def_ec, step=500,
+                              help="ทั่วไป 20,000–35,000 MPa")
+        Sc = st.number_input("Modulus of Rupture Sc (MPa)", min_value=2.0,   max_value=8.0,   value=def_sc, step=0.1,
+                              help="ทั่วไป 4.0–5.5 MPa")
+        Cd = st.number_input("Drainage Coefficient (Cd)",   min_value=0.5,   max_value=1.5,   value=def_cd, step=0.05,
+                              help="ระบายน้ำดีเยี่ยม=1.25, ดีมาก=1.20, ดี=1.15, พอใช้=1.00, แย่=0.75")
+        J  = st.number_input("Load Transfer Coeff (J)",     min_value=1.5,   max_value=5.0,   value=def_j,  step=0.1,
+                              help="มี Dowel bar=2.5-3.1, ไม่มี=3.6-4.4")
+        k  = st.number_input("Subgrade k (MPa/m)",          min_value=10,    max_value=500,   value=def_k,  step=5,
+                              help="27=อ่อน, 54=ปานกลาง, 110=ดี, 220=ดีมาก")
 
-    def _draw_results(self, r):
-        self.canvas.update_idletasks()
-        self.canvas.delete('all')
-        W = self.canvas.winfo_width()
-        H = self.canvas.winfo_height()
-        if W < 100:
-            W, H = 550, 600
+        st.markdown("<br>", unsafe_allow_html=True)
+        calc_btn = st.button("▶  คำนวณ / DESIGN NOW", use_container_width=True)
 
-        pad = 24
-        # ── Header ──
-        self.canvas.create_text(W//2, pad + 10, text="DESIGN RESULTS",
-                                  fill='#60a5fa', font=('Consolas', 13, 'bold'))
+    # ══════════════════════════════════════════════════════
+    #  CALCULATION & DISPLAY
+    # ══════════════════════════════════════════════════════
+    if calc_btn or 'result' in st.session_state:
 
-        # ── ESAL summary ──
-        y = pad + 40
-        self.canvas.create_text(pad, y, anchor='w',
-            text=f"18-kip ESAL  =  {r['W18']:,.0f}",
-            fill='#fbbf24', font=('Consolas', 10, 'bold'))
-        y += 20
-        self.canvas.create_text(pad, y, anchor='w',
-            text=f"ZR = {r['ZR']:.3f}   |   ΔPsi = {r['delta_PSI']:.1f}   |   k = {r['k_pci']:.1f} pci",
-            fill='#94a3b8', font=('Consolas', 9))
+        if calc_btn:
+            with st.spinner("กำลังคำนวณ..."):
+                params = dict(aadt=aadt, truck_pct=truck_pct, growth=growth,
+                               life=life, R=R, S0=S0, pi=pi, pt=pt,
+                               Ec=Ec, Sc=Sc, Cd=Cd, J=J, k=k, ldf=ldf, tff=tff)
+                try:
+                    st.session_state.result = design(params)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    return
 
-        y += 30
-        # Divider
-        self.canvas.create_line(pad, y, W - pad, y, fill='#1e3a5f', width=1)
-        y += 16
+        r = st.session_state.result
 
-        self.canvas.create_text(W//2, y, text="หน้าตัดโครงสร้างผิวทาง  (Cross Section)",
-                                  fill='#e2e8f0', font=('Consolas', 10, 'bold'))
-        y += 24
+        # ── Key Metrics ──
+        st.markdown('<div class="section-title">📐 ผลการออกแบบ</div>', unsafe_allow_html=True)
 
-        # ── Pavement Cross Section Drawing ──
-        total_mm = r['total_mm']
-        layers = [
-            ('Concrete Slab',  r['D_design_mm'],  '#bfdbfe', '#1e40af', '✦'),
-            ('Subbase',        r['subbase_mm'],   '#fef3c7', '#92400e', '◆'),
-            ('Subgrade Prep',  r['subgrade_mm'],  '#d1fae5', '#065f46', '●'),
-        ]
-        diagram_h = H - y - 130
-        diagram_w = W - pad * 2 - 120
-        x0 = pad + 110
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(f"""
+            <div class="metric-box">
+              <div class="metric-label">Concrete Slab</div>
+              <div class="metric-value">{r['D_mm']}</div>
+              <div class="metric-unit">mm  ({r['D_in']:.2f}")</div>
+            </div>""", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"""
+            <div class="metric-box">
+              <div class="metric-label">Subbase</div>
+              <div class="metric-value" style="color:#f59e0b">{r['sub_mm']}</div>
+              <div class="metric-unit">mm  ({r['sub_mm']/25.4:.2f}")</div>
+            </div>""", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"""
+            <div class="metric-box">
+              <div class="metric-label">Subgrade Prep</div>
+              <div class="metric-value" style="color:#10b981">{r['sgrd_mm']}</div>
+              <div class="metric-unit">mm  ({r['sgrd_mm']/25.4:.2f}")</div>
+            </div>""", unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"""
+            <div class="metric-box">
+              <div class="metric-label">Total Depth</div>
+              <div class="metric-value" style="color:#e2e8f0">{r['total_mm']}</div>
+              <div class="metric-unit">mm  ({r['total_mm']/25.4:.2f}")</div>
+            </div>""", unsafe_allow_html=True)
 
-        # Road surface
-        self.canvas.create_rectangle(x0, y, x0 + diagram_w, y + 6,
-                                       fill='#475569', outline='', tags='section')
-        self.canvas.create_text(pad + 50, y + 3, text="ผิวจราจร", fill='#94a3b8',
-                                  font=('Consolas', 8), anchor='e')
-        y += 6
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        for name, thick_mm, fill_color, text_color, sym in layers:
-            lh = max(30, int((thick_mm / total_mm) * diagram_h))
+        col_left, col_right = st.columns([1.1, 1])
 
-            # Layer rect
-            self.canvas.create_rectangle(x0, y, x0 + diagram_w, y + lh,
-                                           fill=fill_color, outline='#0f172a', width=1)
+        # ── Cross Section Diagram ──
+        with col_left:
+            st.markdown('<div class="section-title">📏 หน้าตัดโครงสร้าง</div>', unsafe_allow_html=True)
 
-            # Hatch pattern
-            for hx in range(x0 + 10, x0 + diagram_w - 5, 18):
-                self.canvas.create_line(hx, y, hx - 8, y + lh,
-                                         fill=text_color, width=1, dash=(2,4))
+            total = r['total_mm']
+            layers = [
+                (r['D_mm'],    '#bfdbfe', '#1d4ed8', '🔷', 'Concrete Slab',
+                 f"{r['D_mm']} mm  ·  {r['D_in']:.2f}\""),
+                (r['sub_mm'],  '#fef3c7', '#92400e', '🟨', 'Subbase',
+                 f"{r['sub_mm']} mm  ·  {r['sub_mm']/25.4:.2f}\""),
+                (r['sgrd_mm'], '#d1fae5', '#065f46', '🟩', 'Subgrade Prep',
+                 f"{r['sgrd_mm']} mm  ·  {r['sgrd_mm']/25.4:.2f}\""),
+            ]
 
-            # Label inside
-            mid_y = y + lh // 2
-            self.canvas.create_text(x0 + diagram_w // 2, mid_y,
-                                      text=f"{sym}  {name}",
-                                      fill=text_color, font=('Consolas', 9, 'bold'))
+            # Road surface
+            st.markdown("""
+            <div style="background:#475569; height:10px; border-radius:4px 4px 0 0;
+                        text-align:center; font-size:10px; color:#94a3b8;
+                        font-family:'JetBrains Mono',monospace; line-height:10px;
+                        margin-bottom:2px;">
+            </div>
+            <div style="text-align:center; font-size:10px; color:#64748b;
+                        font-family:'JetBrains Mono',monospace; margin-bottom:4px;">
+              ▲ ผิวจราจร (Road Surface)
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Dimension arrow + label on left
-            ax = pad + 5
-            self.canvas.create_line(ax, y, ax, y + lh, fill='#475569', width=1,
-                                     arrow='both', arrowshape=(6, 7, 3))
-            t_in = thick_mm / 25.4
-            self.canvas.create_text(ax + 4, mid_y, anchor='w',
-                text=f"{thick_mm} mm\n({t_in:.1f}\")",
-                fill='#e2e8f0', font=('Consolas', 8), justify='center')
+            for thick, bg, text_col, sym, name, desc in layers:
+                pct = thick / total
+                height = max(50, int(pct * 280))
+                st.markdown(f"""
+                <div class="layer-bar" style="background:{bg}; height:{height}px; color:{text_col};">
+                  <span>{sym} {name}</span>
+                  <span style="font-size:12px;">{desc}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-            y += lh
+            # Subgrade
+            st.markdown("""
+            <div style="background:linear-gradient(90deg,#4c1d95,#5b21b6);
+                        height:24px; border-radius:0 0 6px 6px;
+                        display:flex; align-items:center; justify-content:center;
+                        font-family:'JetBrains Mono',monospace;
+                        font-size:11px; color:#c4b5fd; margin-top:2px;">
+              ▼  Subgrade (ชั้นดินเดิม)
+            </div>
+            """, unsafe_allow_html=True)
 
-        # Subgrade fill
-        self.canvas.create_rectangle(x0, y, x0 + diagram_w, y + 20,
-                                       fill='#7c3aed', outline='', stipple='gray25')
-        self.canvas.create_text(x0 + diagram_w // 2, y + 10,
-                                  text="Subgrade  ▼", fill='#c4b5fd',
-                                  font=('Consolas', 8))
-        y += 22
+        # ── Calculation Details ──
+        with col_right:
+            st.markdown('<div class="section-title">🔢 ผลการคำนวณ</div>', unsafe_allow_html=True)
 
-        # ── Summary Box ──
-        y += 14
-        box_x = pad
-        bw = W - pad * 2
-        bh = 70
-        self.canvas.create_rectangle(box_x, y, box_x + bw, y + bh,
-                                       fill='#0c1a2e', outline='#2563eb', width=2)
-        self.canvas.create_text(box_x + 16, y + 12, anchor='w',
-            text="► สรุปผลการออกแบบ / Design Summary",
-            fill='#60a5fa', font=('Consolas', 9, 'bold'))
+            st.markdown(f"""
+            <div class="result-card highlight">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:11px;
+                          color:#64748b; margin-bottom:8px;">18-kip ESAL สะสม</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:22px;
+                          font-weight:700; color:#fbbf24;">{r['W18']:,.0f}</div>
+              <div style="font-size:12px; color:#64748b; margin-top:4px;">ESALs ตลอด {r['p']['life']:.0f} ปี</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        col1 = box_x + 16
-        col2 = box_x + bw // 2 + 10
-        row1 = y + 28
-        row2 = y + 46
+            items = [
+                ("Growth Factor (GF)",    f"{r['gf']:.3f}",        "-"),
+                ("ZR",                    f"{r['ZR']:.3f}",        "-"),
+                ("ΔPsi",                  f"{r['dPSI']:.1f}",      "-"),
+                ("k (แปลงหน่วย)",         f"{r['k_pci']:.1f}",    "pci"),
+                ("Ec (แปลงหน่วย)",        f"{r['Ec_psi']:,.0f}",  "psi"),
+                ("Sc (แปลงหน่วย)",        f"{r['Sc_psi']:.1f}",   "psi"),
+                ("D คำนวณได้",             f"{r['D_calc_mm']:.1f}", "mm"),
+                ("D ออกแบบ (ปัดขึ้น 25mm)",f"{r['D_mm']}",        "mm ✓"),
+            ]
 
-        items = [
-            (col1, row1, f"Concrete Slab  :  {r['D_design_mm']} mm  ({r['D_design_in']:.2f}\")"),
-            (col1, row2, f"Subbase        :  {r['subbase_mm']} mm"),
-            (col2, row1, f"Subgrade Prep  :  {r['subgrade_mm']} mm"),
-            (col2, row2, f"Total Depth    :  {r['total_mm']} mm"),
-        ]
-        for cx, cy, txt in items:
-            self.canvas.create_text(cx, cy, anchor='w', text=txt,
-                                      fill='#e2e8f0', font=('Consolas', 9))
+            rows_html = ""
+            for i, (lbl, val, unit) in enumerate(items):
+                bg = "#131c2e" if i % 2 == 0 else "#1a2640"
+                rows_html += f"""
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                            background:{bg}; padding:7px 12px; border-radius:4px; margin:2px 0;
+                            font-family:'JetBrains Mono',monospace; font-size:12px;">
+                  <span style="color:#94a3b8;">{lbl}</span>
+                  <span style="color:#e2e8f0; font-weight:600;">{val}
+                    <span style="color:#475569; font-size:10px;"> {unit}</span>
+                  </span>
+                </div>"""
+            st.markdown(f'<div class="result-card">{rows_html}</div>', unsafe_allow_html=True)
 
-    def export_pdf(self):
-        if self.result is None:
-            messagebox.showwarning("แจ้งเตือน", "กรุณาคำนวณก่อนส่งออก PDF")
-            return
-        fp = filedialog.asksaveasfilename(
-            defaultextension='.pdf',
-            filetypes=[('PDF files', '*.pdf')],
-            initialfile='AASHTO1993_PavementDesign.pdf')
-        if not fp:
-            return
-        try:
-            generate_pdf(self.result, fp)
-            messagebox.showinfo("สำเร็จ", f"บันทึก PDF แล้วที่:\n{fp}")
-        except Exception as e:
-            messagebox.showerror("Error", f"ไม่สามารถสร้าง PDF:\n{e}")
+            # Formula reference
+            with st.expander("📐 สมการ AASHTO 1993"):
+                st.markdown("""
+                <div class="formula-box">
+log₁₀(W18) = ZR·S0 + 7.35·log₁₀(D+1) − 0.06<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ log₁₀(ΔPSI/3) / [1 + 1.624×10⁷/(D+1)⁸·⁴⁶]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (4.22 − 0.32·pt)·log₁₀(Sc·Cd·(D⁰·⁷⁵−1.132) /<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[215.63·J·(D⁰·⁷⁵ − 18.42/(Ec/k)⁰·²⁵)])<br><br>
+<span style="color:#fbbf24;">D</span> = ความหนาแผ่นคอนกรีต (นิ้ว)<br>
+<span style="color:#60a5fa;">W18</span> = 18-kip ESAL สะสม<br>
+<span style="color:#34d399;">k</span> = Modulus of Subgrade Reaction (pci)
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Layer Summary Table ──
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">📋 ตารางสรุปโครงสร้างทาง</div>', unsafe_allow_html=True)
+
+        import pandas as pd
+        df = pd.DataFrame({
+            'ชั้นทาง':       ['Concrete Slab', 'Subbase', 'Subgrade Prep', '▶ รวมทั้งหมด'],
+            'วัสดุ':         ['Portland Cement Concrete', 'Granular / Lean Concrete',
+                               'Compacted Subgrade', ''],
+            'ความหนา (mm)':  [r['D_mm'], r['sub_mm'], r['sgrd_mm'], r['total_mm']],
+            'ความหนา (in)':  [round(r['D_in'],2),
+                               round(r['sub_mm']/25.4,2),
+                               round(r['sgrd_mm']/25.4,2),
+                               round(r['total_mm']/25.4,2)],
+        })
+        st.dataframe(df, use_container_width=True, hide_index=True,
+                      column_config={
+                          'ความหนา (mm)': st.column_config.NumberColumn(format="%d mm"),
+                          'ความหนา (in)': st.column_config.NumberColumn(format="%.2f in"),
+                      })
+
+        # ── PDF Export ──
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_pdf1, col_pdf2, col_pdf3 = st.columns([1,1,1])
+        with col_pdf2:
+            try:
+                pdf_bytes = make_pdf(r)
+                fname = f"AASHTO1993_Design_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                st.download_button(
+                    label="📄  Download รายงาน PDF",
+                    data=pdf_bytes,
+                    file_name=fname,
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"PDF error: {e}")
+
+    else:
+        # Placeholder
+        st.markdown("""
+        <div style="text-align:center; padding:80px 40px;
+                    background:#131c2e; border-radius:14px;
+                    border:1px dashed #243354; margin-top:20px;">
+          <div style="font-size:48px; margin-bottom:16px;">🛣️</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:16px;
+                      color:#3b82f6; font-weight:700; margin-bottom:8px;">
+            กรอกข้อมูลในแถบซ้าย
+          </div>
+          <div style="color:#64748b; font-size:14px;">
+            แล้วกดปุ่ม <b style="color:#60a5fa;">▶ คำนวณ</b> เพื่อดูผลการออกแบบทันที
+          </div>
+          <div style="margin-top:20px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+            <span class="info-tag">AASHTO 1993</span>
+            <span class="info-tag">PCC Pavement</span>
+            <span class="info-tag">ESAL Calculation</span>
+            <span class="info-tag">PDF Report</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<br>', unsafe_allow_html=True)
+        with st.expander("ℹ️  ข้อมูลโปรแกรม"):
+            st.markdown("""
+            **โปรแกรมนี้คำนวณอะไร**
+            - ✅ 18-kip ESAL สะสมตลอดอายุออกแบบ (พร้อม Growth Factor)
+            - ✅ ความหนาแผ่นคอนกรีต ด้วยสมการ AASHTO 1993 (Bisection Method)
+            - ✅ ความหนา Subbase ตามค่า k และขนาดแผ่น
+            - ✅ ความหนา Subgrade Preparation
+            - ✅ Export รายงาน PDF ฉบับสมบูรณ์
+
+            **อ้างอิง**: AASHTO (1993). *Guide for Design of Pavement Structures*.
+            American Association of State Highway and Transportation Officials.
+            """)
 
 
-if __name__ == '__main__':
-    app = PavementApp()
-    app.mainloop()
+if __name__ == "__main__":
+    main()
