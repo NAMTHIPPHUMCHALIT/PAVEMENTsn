@@ -293,20 +293,13 @@ def solve_flexible(W18, ZR, S0, dPSI, pt, MR_psi):
 
 def layer_thickness_from_SN(SN, a1, m1, a2, m2, a3, m3,
                               D1_min_cm=5.0, D2_min_cm=10.0, D3_min_cm=10.0):
-    """
-    Distribute SN → D1,D2,D3 (cm) given layer coefficients & drainage factors.
-    Follows AASHTO layer-by-layer procedure.
-    """
-    # Convert min thickness to SN contribution
     def cm_to_in(x): return x / 2.54
 
-    # Layer 1 — HMA Surface
-    SN1_req = SN * 0.45   # surface carries ~45% of SN for light structures
+    SN1_req = SN * 0.45
     D1_in = max(SN1_req / (a1*m1), cm_to_in(D1_min_cm))
-    D1_in = math.ceil(D1_in / (0.5/2.54)) * (0.5/2.54)  # round up 0.5-cm steps
+    D1_in = math.ceil(D1_in / (0.5/2.54)) * (0.5/2.54)
     SN1 = a1 * m1 * D1_in
 
-    # Layer 2 — Base
     SN_rem2 = SN - SN1
     if SN_rem2 > 0:
         D2_in = max(SN_rem2 / (a2*m2), cm_to_in(D2_min_cm))
@@ -315,7 +308,6 @@ def layer_thickness_from_SN(SN, a1, m1, a2, m2, a3, m3,
     D2_in = math.ceil(D2_in / (1.0/2.54)) * (1.0/2.54)
     SN2 = a2 * m2 * D2_in
 
-    # Layer 3 — Subbase
     SN_rem3 = SN - SN1 - SN2
     if SN_rem3 > 0:
         D3_in = max(SN_rem3 / (a3*m3), cm_to_in(D3_min_cm))
@@ -334,7 +326,6 @@ def subgrade_prep_cm(MR_psi):
     elif MR_psi < 7000: return 20.0
     else:               return 15.0
 
-# ── Main design dispatcher ────────────────────────────────────
 def run_rigid(p):
     Ec_psi  = p['Ec_MPa'] * 145.038
     Sc_psi  = p['Sc_MPa'] * 145.038
@@ -346,9 +337,8 @@ def run_rigid(p):
 
     D_in, D_cm = solve_rigid(W18, ZR, p['S0'], dPSI, p['pt'],
                                Ec_psi, Sc_psi, p['Cd'], p['J'], k_pci)
-    D_design_cm = math.ceil(D_cm / 2.5) * 2.5  # round up to nearest 2.5 cm
+    D_design_cm = math.ceil(D_cm / 2.5) * 2.5
 
-    # Subbase & subgrade
     if p['k_MPam'] < 27:    sub_cm = 30.0
     elif p['k_MPam'] < 55:  sub_cm = 20.0
     elif p['k_MPam'] < 110: sub_cm = 15.0
@@ -413,10 +403,8 @@ def make_pdf_rigid(r):
     CCON = colors.HexColor('#dbeafe')
     CSUB = colors.HexColor('#fef3c7')
     CSGD = colors.HexColor('#d1fae5')
-    CLIT = colors.HexColor('#eff6ff')
     CGRY = colors.HexColor('#64748b')
 
-    styles = getSampleStyleSheet()
     def PS(n, **kw): return ParagraphStyle(n, **kw)
     TT = PS('TT', fontSize=17, fontName='Helvetica-Bold', textColor=CB, alignment=TA_CENTER, spaceAfter=4)
     ST = PS('ST', fontSize=10, fontName='Helvetica',      textColor=CGRY, alignment=TA_CENTER, spaceAfter=10)
@@ -432,7 +420,6 @@ def make_pdf_rigid(r):
 
     cw = [90*mm, 45*mm, 25*mm]
 
-    # Input table
     story.append(Paragraph("1. ข้อมูลนำเข้า (Input Parameters)", H))
     rows = [['พารามิเตอร์','ค่า','หน่วย'],
             ['AADT',f"{p['aadt']:,.0f}",'คัน/วัน'],
@@ -453,7 +440,6 @@ def make_pdf_rigid(r):
     t = _make_table(rows, cw, CACC)
     story.append(t)
 
-    # Calc results
     story.append(Paragraph("2. ผลการคำนวณกลาง (Intermediate Results)", H))
     rows2 = [['รายการ','ค่า','หน่วย'],
              ['Growth Factor',f"{r['gf']:.3f}",'-'],
@@ -467,7 +453,6 @@ def make_pdf_rigid(r):
              ['D ออกแบบ (ปัดขึ้น 2.5 cm)',f"{r['D_cm']:.1f}",'cm']]
     story.append(_make_table(rows2, cw, colors.HexColor('#0891b2')))
 
-    # Layer summary
     story.append(Paragraph("3. สรุปความหนาโครงสร้างทาง (Layer Summary)", H))
     rows3 = [['ชั้นทาง','วัสดุ','ความหนา (cm)','ความหนา (mm)'],
              ['Concrete Slab','Portland Cement Concrete',
@@ -520,16 +505,14 @@ def make_pdf_flexible(r):
     CBAS = colors.HexColor('#fed7aa')
     CSUB = colors.HexColor('#d1fae5')
     CSGD = colors.HexColor('#e0e7ff')
-    CLIT = colors.HexColor('#fffbeb')
     CGRY = colors.HexColor('#64748b')
 
-    styles = getSampleStyleSheet()
     def PS(n, **kw): return ParagraphStyle(n, **kw)
-    TT = PS('TT', fontSize=17, fontName='Helvetica-Bold', textColor=colors.HexColor('#1c0a00'), alignment=TA_CENTER, spaceAfter=4)
-    ST = PS('ST', fontSize=10, fontName='Helvetica', textColor=CGRY, alignment=TA_CENTER, spaceAfter=10)
-    H  = PS('H',  fontSize=12, fontName='Helvetica-Bold', textColor=CACC, spaceBefore=14, spaceAfter=6)
-    N  = PS('N',  fontSize=9,  fontName='Helvetica', textColor=colors.black, spaceAfter=3)
-    NB = PS('NB', fontSize=9,  fontName='Helvetica-Bold', textColor=colors.black)
+    TT = PS('TT2', fontSize=17, fontName='Helvetica-Bold', textColor=colors.HexColor('#1c0a00'), alignment=TA_CENTER, spaceAfter=4)
+    ST = PS('ST2', fontSize=10, fontName='Helvetica', textColor=CGRY, alignment=TA_CENTER, spaceAfter=10)
+    H  = PS('H2',  fontSize=12, fontName='Helvetica-Bold', textColor=CACC, spaceBefore=14, spaceAfter=6)
+    N  = PS('N2',  fontSize=9,  fontName='Helvetica', textColor=colors.black, spaceAfter=3)
+    NB = PS('NB2', fontSize=9,  fontName='Helvetica-Bold', textColor=colors.black)
 
     story = []
     story.append(Paragraph("รายงานการออกแบบโครงสร้างผิวทางยืดหยุ่น", TT))
@@ -734,35 +717,43 @@ def _draw_layers(layers, total):
 
 
 # ══════════════════════════════════════════════════════════════
-#  ─── SIDEBAR : COMMON TRAFFIC ───
+#  ─── SIDEBAR INPUT FUNCTION (with unique key prefix) ───
 # ══════════════════════════════════════════════════════════════
 
-def sidebar_traffic():
-    section_label = """
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;
-                font-weight:700;color:#60a5fa;padding:6px 0 14px;
-                border-bottom:1px solid #1c2d4a;margin-bottom:14px;">
-      ⚙️  ข้อมูลนำเข้า
-    </div>"""
-    st.markdown(section_label, unsafe_allow_html=True)
-    st.markdown('<div class="sec-hdr sec-neutral">🚛 ข้อมูลจราจร</div>',
+def sidebar_traffic(prefix=""):
+    """
+    Render traffic & reliability inputs in sidebar.
+    prefix: unique string ('r_' for Rigid, 'f_' for Flexible)
+    to avoid duplicate widget IDs.
+    """
+    st.markdown(f'<div class="sec-hdr sec-neutral">🚛 ข้อมูลจราจร</div>',
                 unsafe_allow_html=True)
-    aadt  = st.number_input("AADT (คัน/วัน)", 100, 1000000, 8000, 100)
-    tp    = st.number_input("สัดส่วนรถบรรทุก (%)", 1.0, 100.0, 15.0, 0.5)
-    gr    = st.number_input("อัตราเติบโตจราจร (%/ปี)", 0.0, 20.0, 3.0, 0.5)
-    life  = st.number_input("อายุออกแบบ (ปี)", 5, 50, 20, 5)
+    aadt  = st.number_input("AADT (คัน/วัน)", 100, 1000000, 8000, 100,
+                             key=f"{prefix}aadt")
+    tp    = st.number_input("สัดส่วนรถบรรทุก (%)", 1.0, 100.0, 15.0, 0.5,
+                             key=f"{prefix}truck_pct")
+    gr    = st.number_input("อัตราเติบโตจราจร (%/ปี)", 0.0, 20.0, 3.0, 0.5,
+                             key=f"{prefix}growth")
+    life  = st.number_input("อายุออกแบบ (ปี)", 5, 50, 20, 5,
+                             key=f"{prefix}life")
     ldf   = st.number_input("Lane Distribution Factor", 0.1, 1.0, 0.5, 0.05,
-                              help="0.4–0.9 ตามจำนวนช่องจราจร")
+                             help="0.4–0.9 ตามจำนวนช่องจราจร",
+                             key=f"{prefix}ldf")
     tff   = st.number_input("Truck Factor (ESAL/truck)", 0.1, 15.0, 1.0, 0.1,
-                              help="Equivalency Factor เฉลี่ยสำหรับรถบรรทุก")
+                             help="Equivalency Factor เฉลี่ยสำหรับรถบรรทุก",
+                             key=f"{prefix}tff")
     st.markdown('<div class="sec-hdr sec-neutral">📊 ความน่าเชื่อถือ</div>',
                 unsafe_allow_html=True)
     R_opts = [50,60,70,75,80,85,90,91,92,93,94,95,96,97,98,99]
     R  = st.selectbox("Reliability R (%)", R_opts, index=R_opts.index(95),
-                       help="ทางสายหลัก 95-99% | ทางรอง 80-90%")
-    S0 = st.number_input("Overall Std Dev (S0)", 0.20, 0.50, 0.35, 0.01)
-    pi = st.number_input("Initial PSI (pi)", 3.0, 5.0, 4.5, 0.1)
-    pt = st.number_input("Terminal PSI (pt)", 1.5, 3.5, 2.5, 0.1)
+                       help="ทางสายหลัก 95-99% | ทางรอง 80-90%",
+                       key=f"{prefix}R")
+    S0 = st.number_input("Overall Std Dev (S0)", 0.20, 0.50, 0.35, 0.01,
+                          key=f"{prefix}S0")
+    pi = st.number_input("Initial PSI (pi)", 3.0, 5.0, 4.5, 0.1,
+                          key=f"{prefix}pi")
+    pt = st.number_input("Terminal PSI (pt)", 1.5, 3.5, 2.5, 0.1,
+                          key=f"{prefix}pt")
     return dict(aadt=aadt, truck_pct=tp, growth=gr, life=life,
                 ldf=ldf, tff=tff, R=R, S0=S0, pi=pi, pt=pt)
 
@@ -789,22 +780,36 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Main tabs
-    tab_rigid, tab_flex = st.tabs(["🔷  Rigid Pavement (คอนกรีต)", "🟧  Flexible Pavement (แอสฟัลต์)"])
+    # ── Tab selector ─────────────────────────────────────────
+    tab_rigid, tab_flex = st.tabs([
+        "🔷  Rigid Pavement (คอนกรีต)",
+        "🟧  Flexible Pavement (แอสฟัลต์)"
+    ])
 
-    # ═══════════════════════════════════════
+    # ═══════════════════════════════════════════════════════
     #  TAB 1 — RIGID
-    # ═══════════════════════════════════════
+    #  All sidebar widgets for Rigid go inside this tab's
+    #  with-block so they only render when tab is active,
+    #  and they all carry prefix "r_" for unique keys.
+    # ═══════════════════════════════════════════════════════
     with tab_rigid:
         with st.sidebar:
-            traffic = sidebar_traffic()
+            st.markdown("""
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;
+                        font-weight:700;color:#60a5fa;padding:6px 0 14px;
+                        border-bottom:1px solid #1c2d4a;margin-bottom:14px;">
+              ⚙️  ข้อมูลนำเข้า — Rigid
+            </div>""", unsafe_allow_html=True)
+
+            # Traffic inputs with "r_" prefix
+            traffic_r = sidebar_traffic(prefix="r_")
 
             st.markdown('<div class="sec-hdr sec-rigid">🏗️ คุณสมบัติวัสดุ — Rigid</div>',
                         unsafe_allow_html=True)
 
             preset_r = st.selectbox("Preset วัสดุ (Rigid)",
                                      ["มาตรฐานทั่วไป","คุณภาพสูง","ดินฐานอ่อน","กำหนดเอง"],
-                                     key='pr')
+                                     key='r_preset')
             pdata = {"มาตรฐานทั่วไป":(27500,4.50,1.00,3.2,54),
                      "คุณภาพสูง":    (30000,5.00,1.10,2.8,80),
                      "ดินฐานอ่อน":  (25000,4.20,0.90,3.8,27),
@@ -812,21 +817,24 @@ def main():
             dec,dsc,dcd,dj,dk = pdata[preset_r]
 
             Ec   = st.number_input("Elastic Modulus Ec (MPa)", 10000, 50000, dec, 500,
-                                    help="ทั่วไป 20,000–35,000 MPa", key='Ec')
+                                    help="ทั่วไป 20,000–35,000 MPa", key='r_Ec')
             Sc   = st.number_input("Modulus of Rupture Sc (MPa)", 2.0, 8.0, dsc, 0.1,
-                                    help="ทั่วไป 4.0–5.5 MPa", key='Sc')
+                                    help="ทั่วไป 4.0–5.5 MPa", key='r_Sc')
             Cd   = st.number_input("Drainage Coeff (Cd)", 0.5, 1.5, dcd, 0.05,
-                                    help="ดีเยี่ยม=1.25 | ดี=1.15 | พอใช้=1.00 | แย่=0.75", key='Cd')
+                                    help="ดีเยี่ยม=1.25 | ดี=1.15 | พอใช้=1.00 | แย่=0.75",
+                                    key='r_Cd')
             J    = st.number_input("Load Transfer (J)", 1.5, 5.0, dj, 0.1,
-                                    help="มี Dowel bar=2.5-3.1 | ไม่มี=3.6-4.4", key='J')
+                                    help="มี Dowel bar=2.5-3.1 | ไม่มี=3.6-4.4",
+                                    key='r_J')
             k    = st.number_input("Subgrade k (MPa/m)", 10, 500, dk, 5,
-                                    help="27=อ่อน | 54=ปานกลาง | 110=ดี | 220=ดีมาก", key='k')
+                                    help="27=อ่อน | 54=ปานกลาง | 110=ดี | 220=ดีมาก",
+                                    key='r_k')
 
             st.markdown("<br>", unsafe_allow_html=True)
             calc_r = st.button("▶  คำนวณ Rigid Pavement", key='btn_r')
 
         if calc_r:
-            p = {**traffic, 'Ec_MPa':Ec, 'Sc_MPa':Sc, 'Cd':Cd, 'J':J, 'k_MPam':k}
+            p = {**traffic_r, 'Ec_MPa':Ec, 'Sc_MPa':Sc, 'Cd':Cd, 'J':J, 'k_MPam':k}
             with st.spinner("กำลังคำนวณ..."):
                 try:
                     st.session_state['res_rigid'] = run_rigid(p)
@@ -834,58 +842,66 @@ def main():
                     st.error(f"เกิดข้อผิดพลาด: {e}")
 
         if 'res_rigid' in st.session_state:
-            r = st.session_state['res_rigid']
-            _show_rigid_results(r)
+            _show_rigid_results(st.session_state['res_rigid'])
 
-    # ═══════════════════════════════════════
+    # ═══════════════════════════════════════════════════════
     #  TAB 2 — FLEXIBLE
-    # ═══════════════════════════════════════
+    #  All sidebar widgets carry prefix "f_" for unique keys.
+    # ═══════════════════════════════════════════════════════
     with tab_flex:
         with st.sidebar:
-            if tab_flex:
-                traffic2 = sidebar_traffic()
+            st.markdown("""
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;
+                        font-weight:700;color:#fbbf24;padding:6px 0 14px;
+                        border-bottom:1px solid #1c2d4a;margin-bottom:14px;">
+              ⚙️  ข้อมูลนำเข้า — Flexible
+            </div>""", unsafe_allow_html=True)
+
+            # Traffic inputs with "f_" prefix
+            traffic_f = sidebar_traffic(prefix="f_")
 
             st.markdown('<div class="sec-hdr sec-flex">🛞 คุณสมบัติวัสดุ — Flexible</div>',
                         unsafe_allow_html=True)
 
             preset_f = st.selectbox("Preset วัสดุ (Flexible)",
                                      ["มาตรฐานทั่วไป","ปริมาณจราจรมาก","ดินฐานอ่อน","กำหนดเอง"],
-                                     key='pf')
+                                     key='f_preset')
             fdata = {
-                "มาตรฐานทั่วไป": (69,0.44,0.14,0.11,1.0,1.0,1.0, 5,15,15),
+                "มาตรฐานทั่วไป": (69, 0.44,0.14,0.11,1.0,1.0,1.0, 5,15,15),
                 "ปริมาณจราจรมาก":(100,0.44,0.18,0.13,1.0,1.0,1.0, 7,20,20),
                 "ดินฐานอ่อน":    (34, 0.42,0.12,0.10,0.9,0.8,0.8, 5,20,20),
                 "กำหนดเอง":      (69, 0.44,0.14,0.11,1.0,1.0,1.0, 5,15,15),
             }
             dmr,da1,da2,da3,dm1,dm2,dm3,dd1,dd2,dd3 = fdata[preset_f]
 
-            MR   = st.number_input("Resilient Modulus MR (MPa)", 10, 300, dmr, 1,
-                                    help="ค่า MR ของชั้นดินทาง: อ่อน~34MPa | ปานกลาง~69MPa | แข็ง~138MPa",
-                                    key='MR')
+            MR = st.number_input("Resilient Modulus MR (MPa)", 10, 300, dmr, 1,
+                                  help="อ่อน~34MPa | ปานกลาง~69MPa | แข็ง~138MPa",
+                                  key='f_MR')
             st.markdown("**Layer Coefficients & Drainage Factors**")
-            c1,c2 = st.columns(2)
+            c1, c2 = st.columns(2)
             with c1:
-                a1 = st.number_input("a1 (HMA)", 0.20, 0.60, da1, 0.01, key='a1',
+                a1 = st.number_input("a1 (HMA)", 0.20, 0.60, da1, 0.01, key='f_a1',
                                       help="Structural coefficient ชั้น HMA")
-                a2 = st.number_input("a2 (Base)", 0.05, 0.40, da2, 0.01, key='a2')
-                a3 = st.number_input("a3 (Subbase)", 0.03, 0.25, da3, 0.01, key='a3')
+                a2 = st.number_input("a2 (Base)", 0.05, 0.40, da2, 0.01, key='f_a2')
+                a3 = st.number_input("a3 (Subbase)", 0.03, 0.25, da3, 0.01, key='f_a3')
             with c2:
-                m1 = st.number_input("m1", 0.4, 1.4, dm1, 0.05, key='m1',
+                m1 = st.number_input("m1", 0.4, 1.4, dm1, 0.05, key='f_m1',
                                       help="Drainage factor ชั้น HMA")
-                m2 = st.number_input("m2", 0.4, 1.4, dm2, 0.05, key='m2')
-                m3 = st.number_input("m3", 0.4, 1.4, dm3, 0.05, key='m3')
+                m2 = st.number_input("m2", 0.4, 1.4, dm2, 0.05, key='f_m2')
+                m3 = st.number_input("m3", 0.4, 1.4, dm3, 0.05, key='f_m3')
 
             st.markdown("**ความหนาขั้นต่ำแต่ละชั้น (cm)**")
-            c3,c4,c5 = st.columns(3)
-            with c3: d1m = st.number_input("HMA min",  2.5, 25.0, float(dd1), 2.5, key='d1m')
-            with c4: d2m = st.number_input("Base min",  5.0, 50.0, float(dd2), 2.5, key='d2m')
-            with c5: d3m = st.number_input("Sub min",   5.0, 50.0, float(dd3), 2.5, key='d3m')
+            c3, c4, c5 = st.columns(3)
+            with c3: d1m = st.number_input("HMA min",  2.5, 25.0, float(dd1), 2.5, key='f_d1m')
+            with c4: d2m = st.number_input("Base min",  5.0, 50.0, float(dd2), 2.5, key='f_d2m')
+            with c5: d3m = st.number_input("Sub min",   5.0, 50.0, float(dd3), 2.5, key='f_d3m')
 
             st.markdown("<br>", unsafe_allow_html=True)
             calc_f = st.button("▶  คำนวณ Flexible Pavement", key='btn_f')
 
         if calc_f:
-            p2 = {**traffic, 'MR_MPa':MR,
+            p2 = {**traffic_f,
+                  'MR_MPa':MR,
                   'a1':a1,'a2':a2,'a3':a3,
                   'm1':m1,'m2':m2,'m3':m3,
                   'D1_min':d1m,'D2_min':d2m,'D3_min':d3m}
@@ -896,8 +912,7 @@ def main():
                     st.error(f"เกิดข้อผิดพลาด: {e}")
 
         if 'res_flex' in st.session_state:
-            r = st.session_state['res_flex']
-            _show_flex_results(r)
+            _show_flex_results(st.session_state['res_flex'])
 
 
 # ══════════════════════════════════════════════════════════════
@@ -926,7 +941,6 @@ def _show_rigid_results(r):
         st.markdown('<div class="sec-hdr sec-rigid">🔢 ผลการคำนวณ</div>',
                     unsafe_allow_html=True)
 
-        # ESAL highlight
         st.markdown(f"""
         <div style="background:linear-gradient(135deg,#0c1e3a,#122540);
                     border:1px solid #1c3158;border-radius:10px;
@@ -964,7 +978,6 @@ log10(W18) = ZR·S0 + 7.35·log10(D+1) − 0.06<br>
 <span style="color:#60a5fa;">k</span> = Modulus of Subgrade Reaction (pci)
             </div>""", unsafe_allow_html=True)
 
-    # Summary table
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="sec-hdr sec-rigid">📋 ตารางสรุปโครงสร้างทาง</div>',
                 unsafe_allow_html=True)
@@ -982,7 +995,6 @@ log10(W18) = ZR·S0 + 7.35·log10(D+1) − 0.06<br>
                       'ความหนา (mm)': st.column_config.NumberColumn(format="%.0f mm"),
                   })
 
-    # PDF export
     st.markdown("<br>", unsafe_allow_html=True)
     _,mid,_ = st.columns([1,1.2,1])
     with mid:
@@ -1063,7 +1075,6 @@ log10(W18) = ZR·S0 + 9.36·log10(SN+1) − 0.20<br>
 <span style="color:#34d399;">MR</span> = Resilient Modulus (psi)
             </div>""", unsafe_allow_html=True)
 
-    # Summary table
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="sec-hdr sec-flex">📋 ตารางสรุปโครงสร้างทาง</div>',
                 unsafe_allow_html=True)
@@ -1083,7 +1094,6 @@ log10(W18) = ZR·S0 + 9.36·log10(SN+1) − 0.20<br>
                       'ความหนา (mm)': st.column_config.NumberColumn(format="%.0f mm"),
                   })
 
-    # PDF export
     st.markdown("<br>", unsafe_allow_html=True)
     _,mid,_ = st.columns([1,1.2,1])
     with mid:
