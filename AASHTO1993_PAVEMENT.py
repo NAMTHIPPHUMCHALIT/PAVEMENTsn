@@ -7,7 +7,19 @@ AASHTO 1993 Pavement Design Tool — Streamlit
 import streamlit as st
 import math
 import io
+import pandas as pd
 from datetime import datetime
+
+# ── ReportLab (PDF generation) ────────────────────────────────
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer,
+    Table, TableStyle, HRFlowable
+)
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE CONFIG
@@ -384,14 +396,6 @@ def run_flexible(p):
 # ══════════════════════════════════════════════════════════════
 
 def make_pdf_rigid(r):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.lib.units import mm
-    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                     Table, TableStyle, HRFlowable)
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER
-
     p = r['p']
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
@@ -485,14 +489,6 @@ def make_pdf_rigid(r):
 
 
 def make_pdf_flexible(r):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.lib.units import mm
-    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                     Table, TableStyle, HRFlowable)
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER
-
     p = r['p']
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
@@ -596,8 +592,6 @@ def make_pdf_flexible(r):
 
 
 def _make_table(rows, cw, hdr_color):
-    from reportlab.lib import colors
-    from reportlab.platypus import Table, TableStyle
     CLIT = colors.HexColor('#f0f7ff')
     t = Table(rows, colWidths=cw)
     t.setStyle(TableStyle([
@@ -616,8 +610,6 @@ def _make_table(rows, cw, hdr_color):
 
 
 def _add_notes(story, N, NB, ptype):
-    from reportlab.lib import colors
-    from reportlab.platypus import HRFlowable, Spacer
     story.append(Spacer(1, 6))
     story.append(HRFlowable(width="100%", thickness=1,
                              color=colors.HexColor('#94a3b8'), spaceAfter=6))
@@ -981,7 +973,6 @@ log10(W18) = ZR·S0 + 7.35·log10(D+1) − 0.06<br>
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="sec-hdr sec-rigid">📋 ตารางสรุปโครงสร้างทาง</div>',
                 unsafe_allow_html=True)
-    import pandas as pd
     df = pd.DataFrame({
         'ชั้นทาง':        ['Concrete Slab','Subbase','Subgrade Prep','▶ รวม'],
         'วัสดุ':          ['Portland Cement Concrete','Granular / Lean Concrete',
@@ -1078,7 +1069,6 @@ log10(W18) = ZR·S0 + 9.36·log10(SN+1) − 0.20<br>
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="sec-hdr sec-flex">📋 ตารางสรุปโครงสร้างทาง</div>',
                 unsafe_allow_html=True)
-    import pandas as pd
     df = pd.DataFrame({
         'ชั้นทาง':        ['HMA Surface','Base Course','Subbase','Subgrade Prep','▶ รวม'],
         'วัสดุ':          ['Hot Mix Asphalt','Crushed Stone / Gravel Base',
